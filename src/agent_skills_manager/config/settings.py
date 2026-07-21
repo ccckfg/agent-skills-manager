@@ -11,6 +11,7 @@ from agent_skills_manager.domain.models import AgentPreference, SyncMode
 
 APP_NAME = "agent-skills-manager"
 CONFIG_NAME = "settings.yaml"
+DEFAULT_CENTRAL_SKILLS_PATH = "~/.agent/skills"
 
 
 def expand_path(value: str | Path) -> Path:
@@ -25,7 +26,9 @@ def expand_path(value: str | Path) -> Path:
 
 @dataclass(slots=True)
 class Settings:
-    central_skills_path: Path = field(default_factory=lambda: expand_path("~/agent-skills"))
+    central_skills_path: Path = field(
+        default_factory=lambda: expand_path(DEFAULT_CENTRAL_SKILLS_PATH)
+    )
     agents: dict[str, AgentPreference] = field(default_factory=dict)
     path: Path | None = None
 
@@ -49,7 +52,9 @@ class Settings:
             if isinstance(value, dict)
         }
         return cls(
-            central_skills_path=expand_path(data.get("central_skills_path", "~/agent-skills")),
+            central_skills_path=expand_path(
+                data.get("central_skills_path", DEFAULT_CENTRAL_SKILLS_PATH)
+            ),
             agents=agents,
             path=config_path,
         )
