@@ -38,7 +38,7 @@ flowchart LR
 中央仓库默认位于你的用户目录：
 
 ```text
-~/agent-skills/
+~/.agent/skills/
 ├── my-code-review-skill/
 │   └── SKILL.md
 ├── frontend-design/
@@ -201,7 +201,7 @@ uv run agent-skills-manager status
 你会看到类似结果：
 
 ```text
-Central skills: C:\Users\you\agent-skills
+Central skills: C:\Users\you\.agent\skills
 Agent              Mode     Skills  MCPs  Status
 Claude Code        copy         12     3  attention
 Codex              link         12     2  ready
@@ -358,7 +358,7 @@ my-skill.agent-skills-manager-backup-20260721123456789000
 内容类似：
 
 ```yaml
-central_skills_path: C:\Users\you\agent-skills
+central_skills_path: C:\Users\you\.agent\skills
 agents:
   antigravity:
     enabled: true
@@ -419,12 +419,12 @@ skill/agent-skills-manager/
 
 ```powershell
 # Windows PowerShell，中央目录使用默认值时
-Copy-Item -Recurse .\skill\agent-skills-manager "$HOME\agent-skills\agent-skills-manager"
+Copy-Item -Recurse .\skill\agent-skills-manager "$HOME\.agent\skills\agent-skills-manager"
 ```
 
 ```bash
 # macOS，中央目录使用默认值时
-cp -R ./skill/agent-skills-manager ~/agent-skills/agent-skills-manager
+cp -R ./skill/agent-skills-manager ~/.agent/skills/agent-skills-manager
 ```
 
 然后预览并同步：
