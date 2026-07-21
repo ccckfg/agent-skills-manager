@@ -27,20 +27,42 @@ class InventoryService:
         self.store, self.reader = store or SkillStore(), reader or McpReader()
         self.detector = AgentDetector(self.registry)
 
-    def scan(self) -> InventorySnapshot:
+    def scan(self, verify_contents: bool = True) -> InventorySnapshot:
+        """Inspect configured agents.
+
+        ``verify_contents=False`` is intended for the interactive browser: it
+        reports presence and link health without hashing every copied file.
+        Synchronization and CLI status keep the full verification default.
+        """
         central = self.settings.central_skills_path
         canonical = self.store.children(central)
-        inventories = [self._agent(definition, canonical) for definition in self.registry.all()]
+        canonical_digests: dict[str, str] = {}
+        inventories = [
+            self._agent(definition, canonical, verify_contents, canonical_digests)
+            for definition in self.registry.all()
+        ]
         return InventorySnapshot(agents=inventories, central_skills_path=central)
 
-    def _agent(self, definition, canonical) -> AgentInventory:
+    def _agent(self, definition, canonical, verify_contents, canonical_digests) -> AgentInventory:
         skills_path, mcp_path = self.detector.paths_for(definition)
         local = self.store.children(skills_path)
         entries = [
-            self._skill(name, source, local.pop(name, None)) for name, source in canonical.items()
+            self._skill(
+                name,
+                source,
+                local.pop(name, None),
+                verify_contents,
+                canonical_digests,
+            )
+            for name, source in canonical.items()
         ]
         entries.extend(
-            SkillEntry(name=name, path=path, status=ItemStatus.UNMANAGED, is_link=path.is_symlink())
+            SkillEntry(
+                name=name,
+                path=path,
+                status=ItemStatus.UNMANAGED,
+                is_link=self.store.is_link(path),
+            )
             for name, path in local.items()
         )
         mcps = [
@@ -57,15 +79,35 @@ class InventoryService:
             mcps=mcps,
         )
 
-    def _skill(self, name, source, target) -> SkillEntry:
+    def _skill(self, name, source, target, verify_contents, canonical_digests) -> SkillEntry:
         if target is None:
             return SkillEntry(name=name, path=source, status=ItemStatus.MISSING)
-        if target.is_symlink() and not target.exists():
+        is_link = self.store.is_link(target)
+        if is_link and not target.exists():
             return SkillEntry(name=name, path=target, status=ItemStatus.BROKEN, is_link=True)
-        status = ItemStatus.READY if self.store.equivalent(source, target) else ItemStatus.DIFFERENT
-        return SkillEntry(name=name, path=target, status=status, is_link=target.is_symlink())
+        if is_link:
+            status = (
+                ItemStatus.READY
+                if not verify_contents or self.store.points_to(target, source)
+                else ItemStatus.DIFFERENT
+            )
+        elif not verify_contents:
+            status = ItemStatus.READY
+        else:
+            if name not in canonical_digests:
+                canonical_digests[name] = self.store.digest(source)
+            source_digest = canonical_digests[name]
+            status = (
+                ItemStatus.READY
+                if source_digest == self.store.digest(target)
+                else ItemStatus.DIFFERENT
+            )
+        return SkillEntry(name=name, path=target, status=status, is_link=is_link)
 
 
-def load_inventory(settings_path: str | None = None) -> InventorySnapshot:
+def load_inventory(
+    settings_path: str | None = None,
+    verify_contents: bool = True,
+) -> InventorySnapshot:
     """Load an inventory with the default on-disk configuration."""
-    return InventoryService(Settings.load(settings_path)).scan()
+    return InventoryService(Settings.load(settings_path)).scan(verify_contents=verify_contents)

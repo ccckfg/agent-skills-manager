@@ -1,4 +1,4 @@
 interface:
   display_name: "Agent Skills Manager"
-  short_description: "Manage local Skills and safely review agent configuration"
-  default_prompt: "Use $agent-skills-manager to inspect and synchronize my local agent skills safely."
+  short_description: "Manage local Skills with bundled portable scripts"
+  default_prompt: "Use $agent-skills-manager and its bundled script to inspect and safely synchronize my local Agent Skills."

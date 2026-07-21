@@ -1,0 +1,320 @@
+/* Claude-inspired warm terminal theme; intentionally quiet and information-first. */
+
+Screen {
+    background: #191816;
+    color: #e8e1d7;
+}
+
+.topbar {
+    height: 3;
+    padding: 0 2;
+    background: #211f1c;
+    border-bottom: solid #3b3732;
+    align-vertical: middle;
+}
+
+.brand {
+    width: 32;
+    color: #dd815f;
+    text-style: bold;
+    content-align: left middle;
+}
+
+.topbar-context {
+    width: 1fr;
+    color: #9f988e;
+    content-align: right middle;
+    text-overflow: ellipsis;
+}
+
+.shell {
+    height: 1fr;
+    padding: 1 2 0 2;
+}
+
+.eyebrow {
+    height: 1;
+    color: #dd815f;
+    text-style: bold;
+}
+
+.page-title {
+    height: 2;
+    color: #f1ebe2;
+    text-style: bold;
+}
+
+.muted {
+    height: 1;
+    color: #9f988e;
+}
+
+#agents {
+    height: 1fr;
+    margin-top: 1;
+    background: #201f1c;
+    border: round #46413b;
+    scrollbar-background: #201f1c;
+    scrollbar-color: #625a51;
+    scrollbar-color-hover: #7a6e63;
+    scrollbar-color-active: #dd815f;
+}
+
+DataTable > .datatable--header {
+    background: #292621;
+    color: #c9bfb3;
+    text-style: bold;
+}
+
+DataTable > .datatable--cursor {
+    background: #43352e;
+    color: #fff6eb;
+    text-style: bold;
+}
+
+DataTable > .datatable--odd-row {
+    background: #24221f;
+}
+
+#skill-columns {
+    height: 1fr;
+    margin-top: 1;
+}
+
+.skill-pane {
+    width: 1fr;
+    height: 1fr;
+    padding: 1;
+    background: #201f1c;
+    border: round #46413b;
+}
+
+#current-pane {
+    margin-right: 1;
+}
+
+#missing-pane {
+    border: round #76503f;
+}
+
+.pane-kicker {
+    height: 1;
+    color: #9f988e;
+}
+
+.pane-title {
+    height: 2;
+    color: #eee7dd;
+    text-style: bold;
+}
+
+SkillTree {
+    height: 1fr;
+    padding: 0 1;
+    background: #1c1b19;
+    scrollbar-background: #1c1b19;
+    scrollbar-color: #625a51;
+    scrollbar-color-hover: #7a6e63;
+    scrollbar-color-active: #dd815f;
+}
+
+SkillTree:focus {
+    border-left: thick #dd815f;
+}
+
+SkillTree > .tree--cursor {
+    background: #43352e;
+    color: #fff6eb;
+    text-style: bold;
+}
+
+SkillTree > .tree--guides {
+    color: #5c554d;
+}
+
+.selection-info {
+    height: 2;
+    padding: 0 1;
+    color: #aaa298;
+    background: #26231f;
+    text-overflow: ellipsis;
+}
+
+#add-skill,
+#remove-skill {
+    width: 100%;
+    min-width: 12;
+    height: 3;
+    margin-top: 1;
+    text-style: bold;
+}
+
+#add-skill,
+.primary-action {
+    background: #c96f50;
+    color: #1c1714;
+    border: tall #e18a68;
+}
+
+#add-skill:hover,
+.primary-action:hover {
+    background: #df815f;
+}
+
+#remove-skill {
+    background: #2b2824;
+    color: #d2c8bc;
+    border: tall #625a51;
+}
+
+#add-skill:disabled,
+#remove-skill:disabled {
+    background: #272522;
+    color: #69635c;
+    border: tall #373430;
+}
+
+.quiet-button {
+    width: 12;
+    min-width: 12;
+    height: 1;
+    margin-left: 2;
+    background: #2a2723;
+    color: #cfc5b9;
+    border: none;
+}
+
+#mcp-strip {
+    height: 3;
+    margin-top: 1;
+    padding: 0 1;
+    color: #aaa298;
+    background: #211f1c;
+    border-left: thick #6f665d;
+    text-overflow: ellipsis;
+}
+
+Footer {
+    height: 1;
+    background: #211f1c;
+    color: #9f988e;
+}
+
+Footer > .footer--key {
+    background: #3a312b;
+    color: #e69370;
+}
+
+Footer > .footer--description {
+    background: #211f1c;
+    color: #aaa298;
+}
+
+/* Height-aware compact mode: preserve the list before decorative chrome. */
+
+AgentDetailScreen.compact .topbar {
+    height: 1;
+    padding: 0 1;
+    border-bottom: none;
+}
+
+AgentDetailScreen.compact .brand {
+    width: 28;
+}
+
+AgentDetailScreen.compact .quiet-button {
+    height: 1;
+    margin-left: 1;
+}
+
+AgentDetailScreen.compact .shell {
+    padding: 0 1;
+}
+
+AgentDetailScreen.compact .eyebrow,
+AgentDetailScreen.compact .page-title,
+AgentDetailScreen.compact .pane-kicker {
+    display: none;
+}
+
+AgentDetailScreen.compact #skill-columns {
+    margin-top: 0;
+}
+
+AgentDetailScreen.compact .skill-pane {
+    padding: 0 1;
+}
+
+AgentDetailScreen.compact .pane-title,
+AgentDetailScreen.compact .selection-info {
+    height: 1;
+}
+
+AgentDetailScreen.compact #add-skill,
+AgentDetailScreen.compact #remove-skill {
+    height: 1;
+    min-height: 1;
+    margin-top: 0;
+    padding: 0;
+    border: none;
+}
+
+AgentDetailScreen.compact #mcp-strip {
+    height: 1;
+    margin-top: 0;
+    padding: 0 1;
+}
+
+ConfirmScreen {
+    align: center middle;
+    background: #000000 65%;
+}
+
+#confirm-dialog {
+    grid-size: 2 3;
+    grid-columns: 1fr 1fr;
+    grid-rows: 2 1fr 3;
+    grid-gutter: 0 1;
+    width: 64;
+    height: 13;
+    padding: 1 2;
+    background: #27241f;
+    border: round #76503f;
+}
+
+#confirm-title,
+#confirm-message {
+    column-span: 2;
+}
+
+#confirm-title {
+    color: #f1e8dc;
+    text-style: bold;
+}
+
+#confirm-message {
+    color: #bdb4a8;
+}
+
+#confirm-dialog Button {
+    width: 100%;
+    height: 3;
+}
+
+#cancel {
+    background: #312e29;
+    color: #d8cec1;
+    border: tall #5f574f;
+}
+
+.destructive {
+    background: #8f493c;
+    color: #fff4ed;
+    border: tall #b96352;
+}
+
+Toast {
+    background: #292621;
+    color: #eee7dd;
+    border: round #5a524a;
+}

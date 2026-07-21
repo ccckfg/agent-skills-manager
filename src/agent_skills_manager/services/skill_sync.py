@@ -16,7 +16,12 @@ class SkillSyncService:
     def __init__(self, store: SkillStore | None = None) -> None:
         self.store = store or SkillStore()
 
-    def plan(self, snapshot: InventorySnapshot, agent_ids: set[str] | None = None) -> SyncPlan:
+    def plan(
+        self,
+        snapshot: InventorySnapshot,
+        agent_ids: set[str] | None = None,
+        skill_names: set[str] | None = None,
+    ) -> SyncPlan:
         plan = SyncPlan()
         sources = self.store.children(snapshot.central_skills_path)
         for agent in snapshot.agents:
@@ -31,6 +36,8 @@ class SkillSyncService:
                 )
                 mode = SyncMode.COPY
             for entry in agent.skills:
+                if skill_names and entry.name not in skill_names:
+                    continue
                 if entry.status not in {
                     ItemStatus.MISSING,
                     ItemStatus.DIFFERENT,
@@ -63,13 +70,21 @@ class SkillSyncService:
             if action.destination.name != action.skill_name:
                 raise ValueError(f"Unsafe destination: {action.destination}")
             if (
-                action.destination.exists() or action.destination.is_symlink()
+                action.destination.exists() or self.store.is_link(action.destination)
             ) and not action.replace:
                 raise FileExistsError(
                     f"Refusing to overwrite unmanaged skill: {action.destination}"
                 )
+            backup_root = (
+                central_skills_path.parent / "backups" / action.agent_id
+                if central_skills_path
+                else None
+            )
             backup = self.store.replace(
-                action.source, action.destination, action.mode is SyncMode.LINK
+                action.source,
+                action.destination,
+                action.mode is SyncMode.LINK,
+                backup_root,
             )
             if backup:
                 backups.append(backup)

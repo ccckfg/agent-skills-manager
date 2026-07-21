@@ -9,6 +9,7 @@ from agent_skills_manager.config.settings import Settings
 from agent_skills_manager.domain.models import AgentPreference, InventorySnapshot, SyncMode
 from agent_skills_manager.services.inventory import InventoryService
 from agent_skills_manager.services.skill_import import SkillImportService
+from agent_skills_manager.services.skill_removal import SkillRemovalService
 from agent_skills_manager.services.skill_sync import SkillSyncService
 
 
@@ -88,18 +89,34 @@ def _run_tui(settings: Settings) -> int:
 
     inventory = InventoryService(settings)
     synchronizer = SkillSyncService()
+    remover = SkillRemovalService()
+
+    def fast_snapshot() -> InventorySnapshot:
+        return inventory.scan(verify_contents=False)
 
     def sync_agent(agent) -> None:
         snapshot = inventory.scan()
         plan = synchronizer.plan(snapshot, {agent.definition.id})
         synchronizer.execute(plan, snapshot.central_skills_path)
 
+    def add_skills(agent, skill_names: tuple[str, ...]) -> None:
+        snapshot = fast_snapshot()
+        requested = set(skill_names)
+        plan = synchronizer.plan(snapshot, {agent.definition.id}, requested)
+        planned = {action.skill_name for action in plan.actions}
+        if unavailable := requested - planned:
+            raise ValueError(f"No add action is available for: {', '.join(sorted(unavailable))}")
+        synchronizer.execute(plan, snapshot.central_skills_path)
+
+    def remove_skills(agent, skill_names: tuple[str, ...]) -> None:
+        remover.remove_many(fast_snapshot(), agent.definition.id, skill_names)
+
     def set_mode(agent, mode: SyncMode) -> None:
         previous = settings.preference_for(agent.definition.id)
         settings.agents[agent.definition.id] = AgentPreference(previous.enabled, mode)
         settings.save()
 
-    run_tui(inventory.scan, sync_agent, set_mode)
+    run_tui(fast_snapshot, sync_agent, set_mode, add_skills, remove_skills)
     return 0
 
 

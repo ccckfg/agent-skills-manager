@@ -1,0 +1,36 @@
+{
+  "agents": [
+    {
+      "id": "claude-code",
+      "display_name": "Claude Code",
+      "skills_path": "~/.claude/skills",
+      "mcp_path": "~/.claude.json",
+      "mcp_format": "jsonc",
+      "supports_link": true
+    },
+    {
+      "id": "codex",
+      "display_name": "Codex",
+      "skills_path": "~/.codex/skills",
+      "mcp_path": "~/.codex/config.toml",
+      "mcp_format": "toml",
+      "supports_link": true
+    },
+    {
+      "id": "cursor",
+      "display_name": "Cursor",
+      "skills_path": "~/.cursor/skills",
+      "mcp_path": "~/.cursor/mcp.json",
+      "mcp_format": "jsonc",
+      "supports_link": true
+    },
+    {
+      "id": "antigravity",
+      "display_name": "Antigravity",
+      "skills_path": "~/.gemini/config/skills",
+      "mcp_path": "~/.gemini/antigravity/mcp_config.json",
+      "mcp_format": "jsonc",
+      "supports_link": false
+    }
+  ]
+}
