@@ -1,0 +1,1 @@
+"""Bundled declarative agent definitions."""

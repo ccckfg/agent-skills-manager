@@ -1,0 +1,22 @@
+agents:
+  - id: claude-code
+    display_name: Claude Code
+    skills_paths: {default: "~/.claude/skills"}
+    mcp_paths: {default: "~/.claude.json"}
+    mcp_format: jsonc
+  - id: codex
+    display_name: Codex
+    skills_paths: {default: "~/.codex/skills"}
+    mcp_paths: {default: "~/.codex/config.toml"}
+    mcp_format: toml
+  - id: cursor
+    display_name: Cursor
+    skills_paths: {default: "~/.cursor/skills"}
+    mcp_paths: {default: "~/.cursor/mcp.json"}
+    mcp_format: jsonc
+  - id: antigravity
+    display_name: Antigravity
+    skills_paths: {default: "~/.gemini/antigravity/skills"}
+    mcp_paths: {default: "~/.gemini/antigravity/mcp_config.json"}
+    mcp_format: jsonc
+    supports_link: false
