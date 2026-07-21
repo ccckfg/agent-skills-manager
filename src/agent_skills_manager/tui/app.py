@@ -1,4 +1,4 @@
-"""Interactive inventory browser built with Textual."""
+"""Fast, interactive Agent Skills inventory browser."""
 
 from __future__ import annotations
 
@@ -7,201 +7,175 @@ from importlib import import_module
 from typing import Any
 from webbrowser import open as open_uri
 
-from textual.app import App, ComposeResult
-from textual.containers import Container
-from textual.widgets import DataTable, Footer, Header, Static
+from textual import work
+from textual.app import App
 
-from agent_skills_manager.domain.models import (
-    AgentInventory,
-    InventorySnapshot,
-    SyncMode,
-)
+from agent_skills_manager.domain.models import AgentInventory, InventorySnapshot, SyncMode
+from agent_skills_manager.tui.screens import AgentDetailScreen, DashboardScreen
 
 SnapshotLoader = Callable[[], InventorySnapshot]
 SyncHandler = Callable[[AgentInventory], Any]
+SkillHandler = Callable[[AgentInventory, tuple[str, ...]], Any]
 ModeChangeHandler = Callable[[AgentInventory, SyncMode], Any]
 
 
 def _default_snapshot_loader() -> InventorySnapshot:
-    """Resolve the core loader lazily so this package stays UI-only."""
+    """Resolve the inventory lazily and use the TUI's fast presence scan."""
     module = import_module("agent_skills_manager.services.inventory")
     loader = getattr(module, "load_inventory")
-    return loader()
+    return loader(verify_contents=False)
 
 
 class AgentSkillsApp(App[None]):
-    """Browse local agent skills and MCP configurations."""
+    """Browse and manage local Agent Skills without blocking first paint."""
 
-    CSS = """
-    Screen { background: #111827; color: #e5e7eb; }
-    Header { background: #182235; color: #f8fafc; }
-    Footer { background: #182235; color: #cbd5e1; }
-    #content { height: 1fr; padding: 1 2; }
-    #summary { color: #94a3b8; margin-bottom: 1; }
-    DataTable { height: 1fr; background: #172033; }
-    DataTable > .datatable--header { background: #22304a; color: #93c5fd; }
-    #detail { height: 1fr; background: #172033; border: round #334155; padding: 1 2; overflow: auto; }
-    .hidden { display: none; }
-    """
-
-    BINDINGS = [
-        ("enter", "details", "Details"),
-        ("s", "sync", "Sync"),
-        ("m", "toggle_mode", "Mode"),
-        ("r", "refresh", "Refresh"),
-        ("o", "open_folder", "Open"),
-        ("escape", "back", "Back"),
-        ("q", "quit", "Quit"),
-    ]
+    CSS_PATH = "theme.tcss"
+    TITLE = "Agent Skills Manager"
+    ENABLE_COMMAND_PALETTE = False
 
     def __init__(
         self,
         snapshot_loader: SnapshotLoader | None = None,
         sync_handler: SyncHandler | None = None,
         mode_change_handler: ModeChangeHandler | None = None,
+        add_handler: SkillHandler | None = None,
+        remove_handler: SkillHandler | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
         self.snapshot_loader = snapshot_loader or _default_snapshot_loader
         self.sync_handler = sync_handler
         self.mode_change_handler = mode_change_handler
+        self.add_handler = add_handler
+        self.remove_handler = remove_handler
         self.snapshot: InventorySnapshot | None = None
-        self._agent_ids: list[str] = []
-        self._showing_details = False
+        self.dashboard = DashboardScreen()
 
-    def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
-        with Container(id="content"):
-            yield Static("Loading inventory…", id="summary")
-            yield DataTable(id="agents", cursor_type="row")
-            yield Static(id="detail", classes="hidden")
-        yield Footer()
+    def get_default_screen(self) -> DashboardScreen:
+        return self.dashboard
 
     def on_mount(self) -> None:
-        table = self.query_one("#agents", DataTable)
-        table.add_columns("Agent", "Mode", "Skills", "MCPs", "Status")
-        self.action_refresh()
+        self.refresh_inventory(announce=False)
 
-    def _selected_agent(self) -> AgentInventory | None:
-        if not self.snapshot or not self._agent_ids:
-            return None
-        row = min(self.query_one("#agents", DataTable).cursor_row, len(self._agent_ids) - 1)
-        return self.snapshot.agent(self._agent_ids[row])
-
-    def _status(self, agent: AgentInventory) -> str:
-        if not agent.installed:
-            return "Not installed"
-        if agent.needs_attention:
-            return "Needs attention"
-        return "Ready"
-
-    def _render_table(self) -> None:
-        assert self.snapshot is not None
-        table = self.query_one("#agents", DataTable)
-        table.clear()
-        self._agent_ids = []
-        for agent in self.snapshot.agents:
-            self._agent_ids.append(agent.definition.id)
-            table.add_row(
-                agent.definition.display_name,
-                agent.preference.skills_mode.value.title(),
-                str(len(agent.skills)),
-                str(len(agent.mcps)),
-                self._status(agent),
-            )
-        self.query_one("#summary", Static).update(
-            f"{len(self.snapshot.agents)} agents · central skills: {self.snapshot.central_skills_path}"
-        )
-
-    def _render_detail(self, agent: AgentInventory) -> None:
-        skills = (
-            "\n".join(
-                f"  • {entry.name} — {entry.status.value}{' (link)' if entry.is_link else ''}"
-                for entry in agent.skills
-            )
-            or "  None"
-        )
-        mcps = (
-            "\n".join(f"  • {entry.name} — {entry.config_path}" for entry in agent.mcps) or "  None"
-        )
-        errors = "\n".join(f"  • {message}" for message in agent.errors) or "  None"
-        self.query_one("#detail", Static).update(
-            f"[b]{agent.definition.display_name}[/b]\n"
-            f"Status: {self._status(agent)}\nMode: {agent.preference.skills_mode.value.title()}\n\n"
-            f"[b]Skills[/b]\n{skills}\n\n[b]MCP configurations[/b]\n{mcps}\n\n[b]Errors[/b]\n{errors}"
-        )
-
-    def action_refresh(self) -> None:
+    @work(thread=True, exclusive=True, group="inventory", exit_on_error=False)
+    def refresh_inventory(self, announce: bool = True) -> None:
         try:
-            self.snapshot = self.snapshot_loader()
-        except Exception as exc:  # User-facing failure keeps the app usable.
-            self.notify(f"Could not load inventory: {exc}", severity="error")
+            snapshot = self.snapshot_loader()
+        except Exception as exc:
+            self.call_from_thread(self._inventory_failed, str(exc))
             return
-        self._render_table()
-        if self._showing_details and (agent := self._selected_agent()):
-            self._render_detail(agent)
-        self.notify("Inventory refreshed")
+        self.call_from_thread(self._apply_snapshot, snapshot, announce)
 
-    def action_details(self) -> None:
-        agent = self._selected_agent()
-        if not agent:
-            return
-        self._showing_details = True
-        self.query_one("#agents", DataTable).add_class("hidden")
-        detail = self.query_one("#detail", Static)
-        detail.remove_class("hidden")
-        self._render_detail(agent)
+    def _apply_snapshot(self, snapshot: InventorySnapshot, announce: bool = False) -> None:
+        self.snapshot = snapshot
+        if self.dashboard.is_mounted:
+            self.dashboard.set_snapshot(snapshot)
+        if isinstance(self.screen, AgentDetailScreen):
+            agent = snapshot.agent(self.screen.agent.definition.id)
+            if agent:
+                self.screen.set_agent(agent)
+        if announce:
+            self.notify("清单已刷新")
 
-    def on_data_table_row_selected(self, _: DataTable.RowSelected) -> None:
-        """Open a row when Enter is handled by the focused data table."""
-        self.action_details()
+    def _inventory_failed(self, message: str) -> None:
+        if self.dashboard.is_mounted:
+            self.dashboard.query_one("#summary").update(f"读取失败：{message}")
+        if isinstance(self.screen, AgentDetailScreen):
+            self.screen.set_busy(False)
+        self.notify(f"无法读取清单：{message}", severity="error")
 
-    def action_back(self) -> None:
-        if not self._showing_details:
-            return
-        self._showing_details = False
-        self.query_one("#detail", Static).add_class("hidden")
-        self.query_one("#agents", DataTable).remove_class("hidden")
+    def _agent(self, agent_id: str) -> AgentInventory | None:
+        return self.snapshot.agent(agent_id) if self.snapshot else None
 
-    def action_sync(self) -> None:
-        agent = self._selected_agent()
-        if not agent or not self.sync_handler:
-            self.notify("No sync handler is configured", severity="warning")
-            return
-        self.sync_handler(agent)
-        self.notify(f"Sync requested for {agent.definition.display_name}")
-        self.action_refresh()
+    def open_agent(self, agent_id: str) -> None:
+        agent = self._agent(agent_id)
+        if agent:
+            self.push_screen(AgentDetailScreen(agent))
 
-    def action_toggle_mode(self) -> None:
-        agent = self._selected_agent()
+    def toggle_mode(self, agent_id: str) -> None:
+        agent = self._agent(agent_id)
         if not agent:
             return
         if not agent.definition.supports_link:
-            self.notify(
-                f"{agent.definition.display_name} only supports Copy mode", severity="warning"
-            )
+            self.notify(f"{agent.definition.display_name} 仅支持 copy 模式", severity="warning")
             return
         mode = SyncMode.LINK if agent.preference.skills_mode is SyncMode.COPY else SyncMode.COPY
-        if self.mode_change_handler:
-            self.mode_change_handler(agent, mode)
+        try:
+            if self.mode_change_handler:
+                self.mode_change_handler(agent, mode)
+        except Exception as exc:
+            self.notify(f"无法切换模式：{exc}", severity="error")
+            return
         agent.preference.skills_mode = mode
-        self._render_table()
-        if self._showing_details:
-            self._render_detail(agent)
-        self.notify(f"Mode set to {mode.value.title()}")
+        if self.snapshot:
+            self._apply_snapshot(self.snapshot)
+        self.notify(f"同步模式已切换为 {mode.value}")
 
-    def action_open_folder(self) -> None:
-        agent = self._selected_agent()
+    def open_agent_folder(self, agent_id: str) -> None:
+        agent = self._agent(agent_id)
         if not agent:
             return
-        open_uri(agent.skills_path.resolve().as_uri())
-        self.notify(f"Opened {agent.skills_path}")
+        try:
+            open_uri(agent.skills_path.absolute().as_uri())
+        except Exception as exc:
+            self.notify(f"无法打开目录：{exc}", severity="error")
+            return
+        self.notify(f"已打开 {agent.skills_path}")
+
+    @work(thread=True, exclusive=True, group="mutation", exit_on_error=False)
+    def add_skills(self, agent_id: str, skill_names: tuple[str, ...]) -> None:
+        self._run_skill_operation("添加", self.add_handler, agent_id, skill_names)
+
+    @work(thread=True, exclusive=True, group="mutation", exit_on_error=False)
+    def remove_skills(self, agent_id: str, skill_names: tuple[str, ...]) -> None:
+        self._run_skill_operation("移除", self.remove_handler, agent_id, skill_names)
+
+    def _run_skill_operation(
+        self,
+        verb: str,
+        handler: SkillHandler | None,
+        agent_id: str,
+        skill_names: tuple[str, ...],
+    ) -> None:
+        agent = self._agent(agent_id)
+        if not agent or not handler:
+            self.call_from_thread(self._operation_failed, f"没有可用的{verb}处理器")
+            return
+        try:
+            handler(agent, skill_names)
+            snapshot = self.snapshot_loader()
+        except Exception as exc:
+            self.call_from_thread(self._operation_failed, str(exc))
+            return
+        self.call_from_thread(self._operation_complete, snapshot, verb, len(skill_names))
+
+    def _operation_complete(
+        self,
+        snapshot: InventorySnapshot,
+        verb: str,
+        skill_count: int,
+    ) -> None:
+        self._apply_snapshot(snapshot)
+        self.notify(f"已{verb} {skill_count} 个 Skills")
+
+    def _operation_failed(self, message: str) -> None:
+        if isinstance(self.screen, AgentDetailScreen):
+            self.screen.set_busy(False)
+        self.notify(f"操作失败：{message}", severity="error")
 
 
 def run_tui(
     snapshot_loader: SnapshotLoader | None = None,
     sync_handler: SyncHandler | None = None,
     mode_change_handler: ModeChangeHandler | None = None,
+    add_handler: SkillHandler | None = None,
+    remove_handler: SkillHandler | None = None,
 ) -> None:
     """Launch the interactive application."""
-    AgentSkillsApp(snapshot_loader, sync_handler, mode_change_handler).run()
+    AgentSkillsApp(
+        snapshot_loader,
+        sync_handler,
+        mode_change_handler,
+        add_handler,
+        remove_handler,
+    ).run()

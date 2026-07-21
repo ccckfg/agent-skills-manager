@@ -1,44 +1,68 @@
 ---
 name: agent-skills-manager
-description: "Inspect and synchronize local Skills with agent-skills-manager. Use when listing, comparing, importing, or syncing Skills across Claude Code, Codex, Cursor, or Antigravity, or when safely reviewing their MCP and agent configuration."
+description: "Manage local AI Agent Skills with the dependency-free scripts bundled inside this Skill. Use when inspecting, comparing, importing, or synchronizing Skills across Claude Code, Codex, Cursor, or Antigravity; listing their MCP servers; or safely reviewing MCP and other agent configuration. The bundled script works without installing the optional TUI."
 ---
 
 # Agent Skills Manager
 
-Use this skill for local agent setup. Manage **Skills files only** through the `agent-skills-manager` CLI or its TUI. Do not manually copy, delete, or rewrite Skill directories.
+Use the bundled script for deterministic Skills operations. Do not require the separately installed `agent-skills-manager` CLI.
 
-## Choose the operation
+## Start the portable runtime
 
-- Start by running `agent-skills-manager --help`; use the installed command names and flags, not guessed syntax.
-- Use the CLI for scripted inspection, comparison, synchronization, or a dry-run/plan.
-- Use the TUI for interactive inventory review and explicit selection.
-- Read the relevant host reference before inspecting or modifying a host: `references/claude-code.md`, `references/codex.md`, `references/cursor.md`, or `references/antigravity.md`.
-- If the requested host, config path, format, or command is uncertain or may have changed, consult that product's official documentation before acting.
+1. Resolve this Skill's directory and its `scripts/asm.py` file.
+2. Select an available Python 3.9+ command: prefer `python3` on macOS; try `python`, then `py -3`, on Windows.
+3. Run `<python> <skill-root>/scripts/asm.py doctor --json` once per task.
+4. If Python is unavailable or older than 3.9, report that requirement. Do not install software without permission.
 
-## Skills workflow
+The script uses only the Python standard library. Run it from any working directory.
 
-1. Confirm the source, destination agents, and whether the user wants inspect, plan, or apply.
-2. Run the manager to inspect inventory and show the proposed changes.
-3. For a write, present the exact affected Skills and request confirmation if scope was not already explicit.
-4. Run the manager's supported sync/apply command or complete the operation in the TUI.
-5. Re-run inspection to verify the intended Skills are present and unrelated Skills were preserved.
+## Inspect first
 
-Never use the manager to infer permission to modify MCP servers, model settings, hooks, extensions, or other agent configuration.
+Run `status --json` before planning any change. Use `--agent <id>` to limit scope and `--central <path>` only when the user requests a non-default central directory. The default is `~/.agent/skills`.
 
-## MCP and other configuration workflow
+Use `diff --json` when the user needs exact central-versus-agent differences. Add
+`--skill <name>` to narrow the comparison. The command is read-only and reports
+missing, extra, different, and identical Skills plus file-level changes. Identical
+Skills are counted but omitted unless `--all` is supplied.
 
-Handle MCP and non-Skill configuration through the agent's prompt-guided safe edit process, not Skill synchronization:
+Read `references/commands.md` for exact arguments and examples. Do not guess flags.
 
-1. Read the active configuration and identify the exact target block.
-2. Confirm the target host, file, profile/project scope, and intended change with the user when not explicit.
-3. Show a minimal diff before applying it.
-4. Create a timestamped backup beside the configuration file.
-5. Edit only the target block; preserve ordering, comments, and unrelated entries.
-6. Validate the native format and any available host command.
-7. Re-read the file and report the final target block and backup path.
+## Apply a Skills change
 
-Do not expose secrets. Ask before replacing credentials, deleting entries, changing a global configuration, or editing an unrecognized format.
+1. Run `import` or `sync` with `--json` and without `--apply`.
+2. Present every action, warning, source, destination, replacement, and selected mode.
+3. Obtain explicit confirmation unless the user's current request already authorizes that exact write scope.
+4. Re-run the identical command with `--apply` added.
+5. Run `status --json` again and verify the intended state.
+
+Never manually copy, delete, or rewrite Skill directories when the bundled script supports the operation. Never pass `--apply` speculatively. The script preserves replaced directories under `~/.agent/backups/<agent>/` and does not delete unmanaged Skills.
+
+Use Copy when uncertain. Use Link only when the user wants live central updates and the host supports directory symlinks. Antigravity always falls back to Copy.
+
+## Handle MCP and other configuration
+
+Use the script only to list MCP server names. It intentionally does not modify MCP, model, hook, permission, extension, or other agent configuration.
+
+For a requested configuration edit:
+
+1. Read the relevant host reference.
+2. Confirm the target host, file, and user/project scope when ambiguous.
+3. Read the active configuration and show a minimal diff.
+4. Create a timestamped sibling backup.
+5. Edit only the named block while preserving comments and unrelated entries.
+6. Validate the native format and re-read the final block.
+
+Never expose secrets. Ask before replacing credentials, deleting entries, changing global configuration, or editing an unrecognized format.
+
+## Mention the optional TUI
+
+After the first successful bundled-script operation, mention once that the user may install the optional visual TUI:
+
+`uv tool install git+https://github.com/ccckfg/agent-skills-manager.git`
+
+Do not install it unless requested. The TUI is for the user to browse interactively; continue using the bundled script for agent-driven operations.
 
 ## References
 
-Load only the host reference needed for the requested operation.
+- Read `references/commands.md` for bundled script commands.
+- Read only the active host reference: `references/claude-code.md`, `references/codex.md`, `references/cursor.md`, or `references/antigravity.md`.

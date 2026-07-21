@@ -16,7 +16,7 @@ agents:
     mcp_format: jsonc
   - id: antigravity
     display_name: Antigravity
-    skills_paths: {default: "~/.gemini/antigravity/skills"}
+    skills_paths: {default: "~/.gemini/config/skills"}
     mcp_paths: {default: "~/.gemini/antigravity/mcp_config.json"}
     mcp_format: jsonc
     supports_link: false
