@@ -108,7 +108,7 @@ async def test_long_skill_tree_scrolls_to_selected_leaf() -> None:
 @pytest.mark.asyncio
 async def test_compact_layout_reclaims_rows_and_preserves_selection_on_resize() -> None:
     app = AgentSkillsApp(lambda: snapshot(extra_skills=45))
-    async with app.run_test(size=(100, 20)) as pilot:
+    async with app.run_test(size=(100, 30)) as pilot:
         await wait_for_inventory(app, pilot)
         await pilot.press("enter")
         await pilot.pause()
@@ -117,10 +117,11 @@ async def test_compact_layout_reclaims_rows_and_preserves_selection_on_resize() 
 
         tree = app.screen.query_one("#current-skills", SkillTree)
         button = app.screen.query_one("#remove-skill")
-        assert tree.size.height >= 8
-        assert button.outer_size.height == 1
-        assert app.screen.query_one("#current-selection").outer_size.height == 1
+        assert tree.size.height >= 20
+        assert button.outer_size.height == 0
+        assert app.screen.query_one("#current-selection").outer_size.height == 0
         assert app.screen.query_one("#mcp-strip").outer_size.height == 1
+        compact_tree_height = tree.size.height
 
         group = next(node for node in tree.root.children if "gsd-" in node.label.plain)
         tree.move_cursor(group)
@@ -128,10 +129,21 @@ async def test_compact_layout_reclaims_rows_and_preserves_selection_on_resize() 
         await pilot.press("space")
         selected = tree.selected_names
         assert selected
+        assert "已选" in app.screen.query_one("#current-heading").render().plain
+
+        await pilot.resize_terminal(100, 20)
+        await pilot.pause()
+        assert app.screen.has_class("tiny")
+        assert app.screen.query_one("#agent-meta").styles.display == "none"
+        assert app.screen.query_one("#mcp-strip").styles.display == "none"
+        assert compact_tree_height >= 20
+        assert tree.size.height >= 14
+        assert tree.selected_names == selected
 
         await pilot.resize_terminal(120, 40)
         await pilot.pause()
         assert not app.screen.has_class("compact")
+        assert not app.screen.has_class("tiny")
         assert tree.selected_names == selected
         assert button.outer_size.height == 3
 

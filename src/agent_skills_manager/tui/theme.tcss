@@ -245,24 +245,27 @@ AgentDetailScreen.compact .skill-pane {
     padding: 0 1;
 }
 
-AgentDetailScreen.compact .pane-title,
-AgentDetailScreen.compact .selection-info {
+AgentDetailScreen.compact .pane-title {
     height: 1;
 }
 
+AgentDetailScreen.compact .selection-info,
 AgentDetailScreen.compact #add-skill,
 AgentDetailScreen.compact #remove-skill {
-    height: 1;
-    min-height: 1;
-    margin-top: 0;
-    padding: 0;
-    border: none;
+    display: none;
 }
 
 AgentDetailScreen.compact #mcp-strip {
     height: 1;
     margin-top: 0;
     padding: 0 1;
+}
+
+/* Tiny terminals keep only navigation, headings and the two Skill lists. */
+
+AgentDetailScreen.tiny #agent-meta,
+AgentDetailScreen.tiny #mcp-strip {
+    display: none;
 }
 
 ConfirmScreen {

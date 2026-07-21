@@ -88,7 +88,8 @@ class AgentDetailScreen(Screen[None]):
     def _set_layout(self, layout: DetailLayout) -> None:
         changed = layout is not self._layout
         self._layout = layout
-        self.set_class(layout is DetailLayout.COMPACT, "compact")
+        self.set_class(layout is not DetailLayout.FULL, "compact")
+        self.set_class(layout is DetailLayout.TINY, "tiny")
         if changed:
             self.refresh(layout=True)
         if changed and self.is_mounted:
@@ -137,7 +138,7 @@ class AgentDetailScreen(Screen[None]):
 
     def _mcp_summary(self) -> str:
         names = "  ·  ".join(entry.name for entry in self.agent.mcps) or "未发现 MCP"
-        if self._layout is DetailLayout.COMPACT:
+        if self._layout is not DetailLayout.FULL:
             return f"MCP {len(self.agent.mcps)}  ·  {names}"
         errors = f"  ·  {len(self.agent.errors)} 个错误" if self.agent.errors else ""
         return f"MCP  {names}{errors}\n配置  {self.agent.mcp_path}"
@@ -181,7 +182,7 @@ class AgentDetailScreen(Screen[None]):
     def _render_heading(self, pane: str) -> None:
         tree = self.query_one(f"#{pane}-skills", SkillTree)
         selected = len(tree.selected_names)
-        if self._layout is DetailLayout.COMPACT:
+        if self._layout is not DetailLayout.FULL:
             label = "当前 Agent" if pane == "current" else "中央缺少"
             text = f"{label}  ·  {tree.entry_count} Skills"
             if selected:
