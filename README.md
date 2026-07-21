@@ -14,7 +14,7 @@
 - 想不起某个 MCP 到底配置在哪个 Agent 里；
 - 换电脑后，只能凭记忆一点点恢复环境。
 
-Agent Skills Manager 就是为这件事准备的。它是一个**管理Skills的Skills**，还有精美的**TUI界面**，它坚持一个简单思路：
+Agent Skills Manager 就是为这件事准备的。它是一个**管理 Skills 的 Skill**，还有精美的 **TUI 界面**，它坚持一个简单思路：
 
 > **Skills 集中管理，Agent 按需同步；MCP 清楚展示，修改保持谨慎。**
 
@@ -86,90 +86,51 @@ flowchart LR
 | Antigravity | `~/.gemini/config/skills` | `~/.gemini/antigravity/mcp_config.json` | **仅复制** |
 
 > [!NOTE]
-> “未安装”不一定代表程序判断错了。如果某个 Agent 从未创建过 Skills 或 MCP 目录，管理器也会把它标记为未安装。
+> "未安装"不一定代表程序判断错了。如果某个 Agent 从未创建过 Skills 或 MCP 目录，管理器也会把它标记为未安装。
 
-## 最轻安装：只复制 Skill 目录
+## 安装 Skill（让 Agent 帮你完成）
 
-便携 Skill 只要求系统能运行 **Python 3.9 或更高版本**。它只使用标准库，不需要 `pip install`、`uv sync`、Textual 或本项目源码。
+便携 Skill 只要求系统有 **Python 3.9+**，只使用标准库，不需要 `pip install` 或任何第三方包。
 
-1. 下载仓库 ZIP，或克隆仓库：
-
-```shell
-git clone https://github.com/ccckfg/agent-skills-manager.git
-```
-
-2. 找到这个完整目录：
+**最简单的方式：让 AI Agent 帮你安装。** 在任意已支持的 Agent 中说：
 
 ```text
-skill/agent-skills-manager/
-├── SKILL.md
-├── agents/
-├── references/
-└── scripts/
+请帮我安装 agent-skills-manager Skill。
+仓库地址：https://github.com/ccckfg/agent-skills-manager
+把 skill/agent-skills-manager 目录复制到你的 Skills 目录即可。
 ```
 
-3. 把整个 `agent-skills-manager` 文件夹复制到当前 Agent 的 Skills 目录。以 Codex 为例：
+Agent 会自动克隆仓库、定位目录并完成安装。
 
-```powershell
-# Windows PowerShell
-Copy-Item -Recurse .\skill\agent-skills-manager "$HOME\.codex\skills\agent-skills-manager"
-```
+如果你更喜欢手动操作，只需两步：
 
-```bash
-# macOS
-cp -R ./skill/agent-skills-manager ~/.codex/skills/agent-skills-manager
-```
+1. 克隆仓库：`git clone https://github.com/ccckfg/agent-skills-manager.git`
+2. 把 `skill/agent-skills-manager/` 整个目录复制到目标 Agent 的 Skills 目录（见[支持范围](#支持范围)表格）。
 
-Claude Code、Cursor 和 Antigravity 的目标目录请查看上方[支持范围](#支持范围)表格。
-
-4. 重新打开 Agent，直接说：
+安装完成后，重新打开 Agent，直接说：
 
 ```text
 使用 agent-skills-manager 检查我本地所有 Agent 的 Skills 和 MCP。
 ```
 
-Agent 会定位 Skill 自带的 `scripts/asm.py`，运行环境检查，再以 JSON 方式扫描。管理 Skills 时会先展示计划，取得确认后才加上 `--apply`。
-
 > [!IMPORTANT]
-> “只复制即可使用”不等于完全不需要运行环境：电脑仍需有 Python 3.9+，并且 Agent 必须拥有本地终端执行权限。Skill 不会擅自安装 Python。
+> "只复制即可使用"不等于完全不需要运行环境：电脑仍需有 Python 3.9+，并且 Agent 必须拥有本地终端执行权限。
 
-## 可选安装：给用户看的 TUI
+## 可选安装：TUI 界面
 
 内嵌脚本面向 Agent，TUI 面向人。你希望随时打开漂亮的总览界面时，再安装 TUI 即可。
 
-TUI 使用 Python 3.11+ 和 `uv` 管理。先安装 `uv`：
+**同样可以让 AI Agent 帮你安装。** 在 Agent 中说：
 
-Windows PowerShell：
-
-```powershell
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```text
+请帮我安装 agent-skills-manager 的 TUI。
+需要先确保系统有 uv（https://docs.astral.sh/uv/），然后执行：
+uv tool install git+https://github.com/ccckfg/agent-skills-manager.git
 ```
 
-macOS：
+安装完成后运行 `agent-skills-manager init` 初始化，再运行 `agent-skills-manager` 打开 TUI。
 
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-也可以使用包管理器：
-
-```powershell
-# Windows
-winget install --id=astral-sh.uv -e
-```
-
-```bash
-# macOS
-brew install uv
-```
-
-安装完成后关闭并重新打开终端，再检查：
-
-```shell
-uv --version
-```
-
-更多安装方式请查看 [uv 官方安装文档](https://docs.astral.sh/uv/getting-started/installation/)。随后直接从 GitHub 安装：
+如需手动安装，请确保系统已有 [uv](https://docs.astral.sh/uv/getting-started/installation/)，然后：
 
 ```shell
 uv tool install git+https://github.com/ccckfg/agent-skills-manager.git
@@ -178,129 +139,6 @@ agent-skills-manager
 ```
 
 需要参与开发时，也可以克隆仓库后运行 `uv sync`，再使用 `uv run agent-skills-manager`。
-
-## 可选 TUI/CLI 第一次使用
-
-下面以源码运行的 `uv run` 命令为例；如果已经使用 `uv tool install` 全局安装，请去掉前面的 `uv run`。
-
-### 第 1 步：初始化
-
-源码运行：
-
-```shell
-uv run agent-skills-manager init
-```
-
-全局安装：
-
-```shell
-agent-skills-manager init
-```
-
-命令会：
-
-1. 创建配置文件；
-2. 创建中央 Skills 目录；
-3. 写入四个 Agent 的默认同步偏好；
-4. 在终端打印配置文件和中央仓库的实际位置。
-
-它不会在这一步修改任何 Agent 的 Skills 或 MCP。
-
-### 第 2 步：看看当前环境
-
-```shell
-uv run agent-skills-manager status
-```
-
-你会看到类似结果：
-
-```text
-Central skills: C:\Users\you\.agent\skills
-Agent              Mode     Skills  MCPs  Status
-Claude Code        copy         12     3  attention
-Codex              link         12     2  ready
-Cursor             copy          8     1  attention
-Antigravity        copy          0     0  not installed
-```
-
-需要把结果交给脚本处理时，可以输出 JSON：
-
-```shell
-uv run agent-skills-manager status --json
-```
-
-### 第 3 步：把旧 Skills 收进中央仓库
-
-如果各个 Agent 已经有一些 Skills，先预览导入计划：
-
-```shell
-uv run agent-skills-manager import --dry-run
-```
-
-确认计划正确后再执行：
-
-```shell
-uv run agent-skills-manager import
-```
-
-程序会询问：
-
-```text
-Apply this plan? [y/N]
-```
-
-输入 `y` 并回车才会继续。重名 Skill 不会被粗暴覆盖，而是跳过并给出警告。
-
-只想从某一个 Agent 导入时：
-
-```shell
-uv run agent-skills-manager import --agent codex --dry-run
-uv run agent-skills-manager import --agent codex
-```
-
-可用 ID：`claude-code`、`codex`、`cursor`、`antigravity`。
-
-### 第 4 步：从中央仓库同步出去
-
-仍然建议先预览：
-
-```shell
-uv run agent-skills-manager sync --dry-run
-```
-
-再执行：
-
-```shell
-uv run agent-skills-manager sync
-```
-
-只同步给 Cursor：
-
-```shell
-uv run agent-skills-manager sync --agent cursor --dry-run
-uv run agent-skills-manager sync --agent cursor
-```
-
-自动化场景可以使用 `--yes` 跳过询问：
-
-```shell
-uv run agent-skills-manager sync --yes
-```
-
-> [!WARNING]
-> 新手请不要急着使用 `--yes`。养成先运行 `--dry-run` 的习惯，你会清楚知道哪些目录即将变化。
-
-### 第 5 步：打开 TUI
-
-```shell
-uv run agent-skills-manager
-```
-
-或明确写出子命令：
-
-```shell
-uv run agent-skills-manager tui
-```
 
 ## TUI 怎么操作？
 
@@ -353,7 +191,7 @@ Agent 目录里放的是指向中央 Skill 的软链接。
 
 注意事项：
 
-- Windows 会使用目录 Junction，通常不要求开启“开发者模式”；macOS 使用目录软链接；
+- Windows 会使用目录 Junction，通常不要求开启"开发者模式"；macOS 使用目录软链接；
 - 移动或删除中央仓库会让链接失效；
 - 某些 Agent 或沙箱环境不接受软链接；
 - Antigravity 在本项目中固定使用 Copy。
@@ -402,10 +240,10 @@ agents:
 你也可以临时使用另一份配置：
 
 ```shell
-uv run agent-skills-manager --config ./my-settings.yaml status
+agent-skills-manager --config ./my-settings.yaml status
 ```
 
-这很适合区分“工作环境”和“个人环境”。
+这很适合区分"工作环境"和"个人环境"。
 
 ## MCP 为什么只读？
 
@@ -420,13 +258,7 @@ uv run agent-skills-manager --config ./my-settings.yaml status
 
 自动重写稍有不慎就可能丢注释、泄露秘密或破坏整个配置。因此当前应用只盘点 MCP Server 名称。
 
-需要修改时，可使用仓库中的配套 Skill：
-
-```text
-skill/agent-skills-manager/
-```
-
-它会指导 Agent：
+需要修改时，可使用仓库中的配套 Skill。它会指导 Agent：
 
 1. 找准目标 Agent 和配置文件；
 2. 读取现有配置；
@@ -438,48 +270,9 @@ skill/agent-skills-manager/
 
 也就是说，**程序负责看清楚，Agent 负责解释和谨慎操作，最终决定权仍在你手里。**
 
-## Agent 实际会运行什么？
-
-复制 Skill 后，Agent 不需要寻找项目源码，也不需要全局 CLI。它会从当前 Skill 目录直接调用：
-
-```shell
-# 检查运行环境
-python <skill-root>/scripts/asm.py doctor --json
-
-# 只读扫描 Skills 与 MCP
-python <skill-root>/scripts/asm.py status --json
-
-# 比较中央仓库与 Codex，并显示文件级差异
-python <skill-root>/scripts/asm.py diff --agent codex --json
-
-# 预览从 Codex 导入尚未纳管的 Skill
-python <skill-root>/scripts/asm.py import --agent codex --json
-
-# 用户确认后执行同一计划
-python <skill-root>/scripts/asm.py import --agent codex --json --apply
-
-# 预览同步到 Cursor
-python <skill-root>/scripts/asm.py sync --agent cursor --mode copy --json
-
-# 用户确认后执行同步
-python <skill-root>/scripts/asm.py sync --agent cursor --mode copy --json --apply
-```
-
-macOS 通常使用 `python3`；部分 Windows 环境使用 `py -3`。Agent 会先探测可用命令。`<skill-root>` 是包含当前 `SKILL.md` 的实际目录。
-
 ## 常见问题
 
-### 1. 提示 `agent-skills-manager` 不是命令
-
-如果你只是运行了 `uv sync`，请使用：
-
-```shell
-uv run agent-skills-manager
-```
-
-只有执行过 `uv tool install .` 后，才可以在任意目录直接运行全局命令。
-
-### 2. 为什么某个 Agent 显示 `Needs attention`？
+### 1. 为什么某个 Agent 显示 `Needs attention`？
 
 常见原因包括：
 
@@ -490,11 +283,11 @@ uv run agent-skills-manager
 
 先运行 `status`，再使用 `import --dry-run` 或 `sync --dry-run` 判断是哪一种情况。
 
-### 3. Windows 创建软链接失败怎么办？
+### 2. Windows 创建软链接失败怎么办？
 
 最省心的方案是在 TUI 中按 `M` 切回 Copy。你也可以开启 Windows 开发者模式，再重新尝试 Link。
 
-### 4. MCP 数量为什么是 0？
+### 3. MCP 数量为什么是 0？
 
 可能是：
 
@@ -505,73 +298,13 @@ uv run agent-skills-manager
 
 请先确认表格中的默认路径是否与你的实际安装一致，再提交 Issue。
 
-### 5. 导入时提示重名并跳过
+### 4. 导入时提示重名并跳过
 
 这是一项保护措施。两个 Agent 中同名 Skill 可能内容不同，程序不会擅自替你决定保留哪一个。请手动比较后改名，或明确整理中央版本，再重新扫描。
 
-### 6. 我能直接编辑中央仓库吗？
+### 5. 我能直接编辑中央仓库吗？
 
-可以。中央仓库就是普通文件夹。建议编辑完成后先运行：
-
-```shell
-uv run agent-skills-manager sync --dry-run
-```
-
-确认差异符合预期，再执行同步。
-
-## 命令速查表
-
-### Skill 内嵌脚本（Agent 使用）
-
-```shell
-# 环境自检
-python <skill-root>/scripts/asm.py doctor --json
-
-# 只读状态
-python <skill-root>/scripts/asm.py status --json
-
-# 只读差异；可重复使用 --skill 精确筛选
-python <skill-root>/scripts/asm.py diff --agent codex --skill frontend-design --json
-
-# 预览 / 执行导入
-python <skill-root>/scripts/asm.py import --agent codex --json
-python <skill-root>/scripts/asm.py import --agent codex --json --apply
-
-# 预览 / 执行同步
-python <skill-root>/scripts/asm.py sync --agent cursor --mode copy --json
-python <skill-root>/scripts/asm.py sync --agent cursor --mode copy --json --apply
-```
-
-### 可选 TUI/CLI（用户使用）
-
-```shell
-# 查看帮助
-uv run agent-skills-manager --help
-
-# 初始化配置与中央仓库
-uv run agent-skills-manager init
-
-# 打开 TUI
-uv run agent-skills-manager
-
-# 查看文本状态 / JSON 状态
-uv run agent-skills-manager status
-uv run agent-skills-manager status --json
-
-# 预览导入 / 执行导入
-uv run agent-skills-manager import --dry-run
-uv run agent-skills-manager import
-
-# 预览同步 / 执行同步
-uv run agent-skills-manager sync --dry-run
-uv run agent-skills-manager sync
-
-# 只处理一个 Agent
-uv run agent-skills-manager sync --agent codex --dry-run
-
-# 使用自定义配置文件
-uv run agent-skills-manager --config ./my-settings.yaml status
-```
+可以。中央仓库就是普通文件夹。编辑完成后建议运行 `sync --dry-run` 确认差异符合预期，再执行同步。
 
 ## 项目结构
 
