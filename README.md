@@ -14,11 +14,9 @@
 - 想不起某个 MCP 到底配置在哪个 Agent 里；
 - 换电脑后，只能凭记忆一点点恢复环境。
 
-Agent Skills Manager 就是为这件事准备的。它坚持一个简单思路：
+Agent Skills Manager 就是为这件事准备的。它是一个**管理Skills的Skills**，还有精美的**TUI界面**，它坚持一个简单思路：
 
 > **Skills 集中管理，Agent 按需同步；MCP 清楚展示，修改保持谨慎。**
-
-当前版本是可运行的早期 MVP，适合个人本地使用和一起完善。
 
 ## 实机效果
 
