@@ -20,6 +20,7 @@ class SkillImportService:
         self,
         snapshot: InventorySnapshot,
         agent_ids: set[str] | None = None,
+        skill_names: set[str] | None = None,
     ) -> SyncPlan:
         plan = SyncPlan()
         claimed = set(self.store.children(snapshot.central_skills_path))
@@ -28,6 +29,8 @@ class SkillImportService:
                 continue
             for entry in agent.skills:
                 if entry.status is not ItemStatus.UNMANAGED:
+                    continue
+                if skill_names is not None and entry.name not in skill_names:
                     continue
                 if entry.name in claimed:
                     plan.warnings.append(

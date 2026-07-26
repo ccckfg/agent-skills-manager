@@ -22,6 +22,11 @@ def _parser() -> argparse.ArgumentParser:
 
     status = commands.add_parser("status", help="Print the current inventory")
     status.add_argument("--json", action="store_true", dest="as_json")
+    status.add_argument(
+        "--verify",
+        action="store_true",
+        help="Compare file contents instead of only presence and link health",
+    )
 
     for name, description in (
         ("sync", "Synchronize central skills to agents"),
@@ -34,11 +39,15 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _snapshot(settings: Settings) -> InventorySnapshot:
-    return InventoryService(settings).scan()
+def _snapshot(settings: Settings, verify_contents: bool = True) -> InventorySnapshot:
+    return InventoryService(settings).scan(verify_contents=verify_contents)
 
 
-def _print_status(snapshot: InventorySnapshot, as_json: bool = False) -> None:
+def _print_status(
+    snapshot: InventorySnapshot,
+    as_json: bool = False,
+    verified: bool = True,
+) -> None:
     rows = [
         {
             "id": agent.definition.id,
@@ -46,6 +55,8 @@ def _print_status(snapshot: InventorySnapshot, as_json: bool = False) -> None:
             "installed": agent.installed,
             "mode": agent.preference.skills_mode.value,
             "skills": len(agent.skills),
+            "present": agent.present_skills,
+            "missing": agent.missing_skills,
             "mcps": [entry.name for entry in agent.mcps],
             "attention": agent.needs_attention,
             "skills_path": str(agent.skills_path),
@@ -54,16 +65,27 @@ def _print_status(snapshot: InventorySnapshot, as_json: bool = False) -> None:
         for agent in snapshot.agents
     ]
     if as_json:
-        print(json.dumps({"central": str(snapshot.central_skills_path), "agents": rows}, indent=2))
+        payload = {
+            "central": str(snapshot.central_skills_path),
+            "verified": verified,
+            "agents": rows,
+        }
+        print(json.dumps(payload, indent=2))
         return
     print(f"Central skills: {snapshot.central_skills_path}")
-    print(f"{'Agent':<18} {'Mode':<8} {'Skills':>6} {'MCPs':>5}  Status")
+    if not verified:
+        print("Presence and link health only. Use --verify to compare file contents.")
+    print(f"{'Agent':<18} {'Mode':<8} {'Skills':>6} {'Missing':>7} {'MCPs':>5}  Status")
     for row in rows:
-        status = (
-            "attention" if row["attention"] else ("ready" if row["installed"] else "not installed")
-        )
+        # A host that was never installed reports every central Skill as missing, so
+        # absence has to win over attention or nothing is ever "not installed".
+        if not row["installed"]:
+            status = "not installed"
+        else:
+            status = "attention" if row["attention"] else "ready"
         print(
-            f"{row['agent']:<18} {row['mode']:<8} {row['skills']:>6} {len(row['mcps']):>5}  {status}"
+            f"{row['agent']:<18} {row['mode']:<8} {row['present']:>6} {row['missing']:>7} "
+            f"{len(row['mcps']):>5}  {status}"
         )
 
 
@@ -89,6 +111,7 @@ def _run_tui(settings: Settings) -> int:
 
     inventory = InventoryService(settings)
     synchronizer = SkillSyncService()
+    importer = SkillImportService()
     remover = SkillRemovalService()
 
     def fast_snapshot() -> InventorySnapshot:
@@ -108,6 +131,16 @@ def _run_tui(settings: Settings) -> int:
             raise ValueError(f"No add action is available for: {', '.join(sorted(unavailable))}")
         synchronizer.execute(plan, snapshot.central_skills_path)
 
+    def import_skills(agent, skill_names: tuple[str, ...]) -> None:
+        snapshot = fast_snapshot()
+        requested = set(skill_names)
+        plan = importer.plan(snapshot, {agent.definition.id}, requested)
+        planned = {action.skill_name for action in plan.actions}
+        if unavailable := requested - planned:
+            detail = "；".join(plan.warnings) or "它们可能已不在这个 Agent 中"
+            raise ValueError(f"无法导入：{', '.join(sorted(unavailable))}（{detail}）")
+        importer.execute(plan)
+
     def remove_skills(agent, skill_names: tuple[str, ...]) -> None:
         remover.remove_many(fast_snapshot(), agent.definition.id, skill_names)
 
@@ -116,7 +149,7 @@ def _run_tui(settings: Settings) -> int:
         settings.agents[agent.definition.id] = AgentPreference(previous.enabled, mode)
         settings.save()
 
-    run_tui(fast_snapshot, sync_agent, set_mode, add_skills, remove_skills)
+    run_tui(fast_snapshot, sync_agent, set_mode, add_skills, remove_skills, import_skills)
     return 0
 
 
@@ -132,9 +165,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         path = settings.save()
         print(f"Settings: {path}\nCentral skills: {settings.central_skills_path}")
         return 0
-    snapshot = _snapshot(settings)
+    # Only sync has to prove that two directories hold the same bytes. import looks for
+    # Skills the central store has never seen, and status reports presence and link
+    # health unless verification is requested, so neither needs to hash every file.
+    verify = args.command == "sync" or (args.command == "status" and args.verify)
+    snapshot = _snapshot(settings, verify_contents=verify)
     if args.command == "status":
-        _print_status(snapshot, args.as_json)
+        _print_status(snapshot, args.as_json, verified=args.verify)
         return 0
     agent_ids = set(args.agents) if args.agents else None
     service = SkillSyncService() if args.command == "sync" else SkillImportService()

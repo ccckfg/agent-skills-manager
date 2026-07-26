@@ -33,6 +33,11 @@ def _parser(agent_ids: List[str]) -> argparse.ArgumentParser:
 
     status = commands.add_parser("status", help="Read Skills and MCP inventory")
     _add_common(status, agent_ids)
+    status.add_argument(
+        "--verify",
+        action="store_true",
+        help="Compare file contents instead of only presence and link health",
+    )
 
     difference = commands.add_parser("diff", help="Compare central and agent Skills")
     _add_common(difference, agent_ids)
@@ -59,27 +64,39 @@ def _selected(values: Optional[List[str]]) -> Optional[Set[str]]:
     return set(values) if values else None
 
 
-def _status_payload(central: Path, inventories: List[AgentInventory]) -> dict:
+def _status_payload(central: Path, inventories: List[AgentInventory], verified: bool) -> dict:
     return {
         "central": str(central),
+        "verified": verified,
         "agents": [inventory.as_dict() for inventory in inventories],
     }
 
 
-def _print_status(central: Path, inventories: List[AgentInventory], as_json: bool) -> None:
-    payload = _status_payload(central, inventories)
+def _print_status(
+    central: Path,
+    inventories: List[AgentInventory],
+    as_json: bool,
+    verified: bool,
+) -> None:
+    payload = _status_payload(central, inventories, verified)
     if as_json:
         print(json.dumps(payload, indent=2, ensure_ascii=False))
         return
     print("Central Skills: {}".format(central))
-    print("{:<18} {:>7} {:>6}  {}".format("Agent", "Skills", "MCPs", "Status"))
+    if not verified:
+        print("Presence and link health only. Use --verify or diff to compare file contents.")
+    print("{:<18} {:>7} {:>8} {:>6}  {}".format("Agent", "Skills", "Missing", "MCPs", "Status"))
     for agent in inventories:
         state = "attention" if agent.needs_attention else "ready"
         if not agent.installed:
             state = "not installed"
         print(
-            "{:<18} {:>7} {:>6}  {}".format(
-                agent.profile.display_name, len(agent.skills), len(agent.mcps), state
+            "{:<18} {:>7} {:>8} {:>6}  {}".format(
+                agent.profile.display_name,
+                agent.present_skills,
+                agent.missing_skills,
+                len(agent.mcps),
+                state,
             )
         )
     print("\nOptional TUI: {}".format(TUI_INSTALL))
@@ -193,16 +210,23 @@ def main(argv: Optional[List[str]] = None) -> int:
         differences = compare(central, profiles, skill_names)
         _print_diff(central, differences, args.as_json, args.include_identical)
         return 0
-    skip_content_comparison = args.command == "sync" and args.mode == "link"
-    trust_links = args.command == "sync" and args.mode == "copy"
+    # Only sync has to prove that two directories hold the same bytes. status reports
+    # presence and link health unless --verify is requested, and import only looks for
+    # Skills the central store has never seen, so neither needs to hash every file.
+    if args.command == "sync":
+        compare_contents = args.mode != "link"
+        trust_links = args.mode == "copy"
+    else:
+        compare_contents = args.command == "status" and args.verify
+        trust_links = False
     inventories = scan(
         central,
         profiles,
-        compare_contents=not skip_content_comparison,
+        compare_contents=compare_contents,
         trust_links=trust_links,
     )
     if args.command == "status":
-        _print_status(central, inventories, args.as_json)
+        _print_status(central, inventories, args.as_json, compare_contents)
         return 0
     selected = _selected(args.agents)
     if args.command == "import":

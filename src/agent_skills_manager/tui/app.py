@@ -40,6 +40,7 @@ class AgentSkillsApp(App[None]):
         mode_change_handler: ModeChangeHandler | None = None,
         add_handler: SkillHandler | None = None,
         remove_handler: SkillHandler | None = None,
+        import_handler: SkillHandler | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
@@ -48,6 +49,7 @@ class AgentSkillsApp(App[None]):
         self.mode_change_handler = mode_change_handler
         self.add_handler = add_handler
         self.remove_handler = remove_handler
+        self.import_handler = import_handler
         self.snapshot: InventorySnapshot | None = None
         self.dashboard = DashboardScreen()
 
@@ -130,6 +132,10 @@ class AgentSkillsApp(App[None]):
     def remove_skills(self, agent_id: str, skill_names: tuple[str, ...]) -> None:
         self._run_skill_operation("移除", self.remove_handler, agent_id, skill_names)
 
+    @work(thread=True, exclusive=True, group="mutation", exit_on_error=False)
+    def import_skills(self, agent_id: str, skill_names: tuple[str, ...]) -> None:
+        self._run_skill_operation("导入", self.import_handler, agent_id, skill_names)
+
     def _run_skill_operation(
         self,
         verb: str,
@@ -170,6 +176,7 @@ def run_tui(
     mode_change_handler: ModeChangeHandler | None = None,
     add_handler: SkillHandler | None = None,
     remove_handler: SkillHandler | None = None,
+    import_handler: SkillHandler | None = None,
 ) -> None:
     """Launch the interactive application."""
     AgentSkillsApp(
@@ -178,4 +185,5 @@ def run_tui(
         mode_change_handler,
         add_handler,
         remove_handler,
+        import_handler,
     ).run()

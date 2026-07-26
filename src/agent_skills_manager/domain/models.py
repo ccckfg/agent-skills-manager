@@ -23,8 +23,8 @@ class ItemStatus(StrEnum):
 class AgentDefinition:
     id: str
     display_name: str
-    skills_paths: dict[str, str]
-    mcp_paths: dict[str, str]
+    skills_paths: dict[str, str | list[str]]
+    mcp_paths: dict[str, str | list[str]]
     mcp_format: str
     supports_link: bool = True
 
@@ -61,8 +61,24 @@ class AgentInventory:
     errors: list[str] = field(default_factory=list)
 
     @property
+    def missing_skills(self) -> int:
+        return sum(item.status is ItemStatus.MISSING for item in self.skills)
+
+    @property
+    def present_skills(self) -> int:
+        return sum(item.status is not ItemStatus.MISSING for item in self.skills)
+
+    @property
     def needs_attention(self) -> bool:
-        return bool(self.errors) or any(item.status is not ItemStatus.READY for item in self.skills)
+        """Flag only states the user has to resolve, not Skills they never added.
+
+        A Skill that exists centrally but not here is an ordinary choice and is
+        counted separately. Broken links, unmanaged copies and content conflicts are
+        real problems, so they keep this true.
+        """
+        return bool(self.errors) or any(
+            item.status not in {ItemStatus.READY, ItemStatus.MISSING} for item in self.skills
+        )
 
 
 @dataclass(slots=True)

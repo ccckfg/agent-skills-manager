@@ -36,7 +36,25 @@ class AgentRegistry:
     def get(self, agent_id: str) -> AgentDefinition | None:
         return next((item for item in self._definitions if item.id == agent_id), None)
 
-    def path_for(self, definition: AgentDefinition, kind: str, system: str | None = None) -> str:
+    def path_candidates(
+        self,
+        definition: AgentDefinition,
+        kind: str,
+        system: str | None = None,
+    ) -> list[str]:
+        """Return every documented location for one kind, most preferred first.
+
+        Several agents renamed or relocated their directory between releases, so a
+        definition may list more than one path. The detector keeps the first entry
+        that exists on this machine and falls back to the preferred one.
+        """
         key = (system or platform.system()).lower()
         paths = definition.skills_paths if kind == "skills" else definition.mcp_paths
-        return paths.get(key, paths.get("default", ""))
+        value = paths.get(key, paths.get("default", ""))
+        if isinstance(value, str):
+            return [value] if value else []
+        return [item for item in value if item]
+
+    def path_for(self, definition: AgentDefinition, kind: str, system: str | None = None) -> str:
+        candidates = self.path_candidates(definition, kind, system)
+        return candidates[0] if candidates else ""

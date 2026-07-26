@@ -3,34 +3,273 @@
     {
       "id": "claude-code",
       "display_name": "Claude Code",
-      "skills_path": "~/.claude/skills",
-      "mcp_path": "~/.claude.json",
-      "mcp_format": "jsonc",
-      "supports_link": true
+      "skills_paths": {
+        "default": "~/.claude/skills"
+      },
+      "mcp_paths": {
+        "default": "~/.claude.json"
+      },
+      "mcp_format": "jsonc"
     },
     {
       "id": "codex",
       "display_name": "Codex",
-      "skills_path": "~/.codex/skills",
-      "mcp_path": "~/.codex/config.toml",
-      "mcp_format": "toml",
-      "supports_link": true
+      "skills_paths": {
+        "default": "~/.codex/skills"
+      },
+      "mcp_paths": {
+        "default": "~/.codex/config.toml"
+      },
+      "mcp_format": "toml"
     },
     {
       "id": "cursor",
       "display_name": "Cursor",
-      "skills_path": "~/.cursor/skills",
-      "mcp_path": "~/.cursor/mcp.json",
-      "mcp_format": "jsonc",
-      "supports_link": true
+      "skills_paths": {
+        "default": "~/.cursor/skills"
+      },
+      "mcp_paths": {
+        "default": "~/.cursor/mcp.json"
+      },
+      "mcp_format": "jsonc"
     },
     {
       "id": "antigravity",
       "display_name": "Antigravity",
-      "skills_path": "~/.gemini/config/skills",
-      "mcp_path": "~/.gemini/antigravity/mcp_config.json",
+      "skills_paths": {
+        "default": [
+          "~/.gemini/config/skills",
+          "~/.gemini/antigravity/skills"
+        ]
+      },
+      "mcp_paths": {
+        "default": "~/.gemini/antigravity/mcp_config.json"
+      },
       "mcp_format": "jsonc",
       "supports_link": false
+    },
+    {
+      "id": "gemini-cli",
+      "display_name": "Gemini CLI",
+      "skills_paths": {
+        "default": "~/.gemini/skills"
+      },
+      "mcp_paths": {
+        "default": "~/.gemini/settings.json"
+      },
+      "mcp_format": "jsonc"
+    },
+    {
+      "id": "copilot-cli",
+      "display_name": "GitHub Copilot CLI",
+      "skills_paths": {
+        "default": "~/.copilot/skills"
+      },
+      "mcp_paths": {
+        "default": "~/.copilot/mcp-config.json"
+      },
+      "mcp_format": "jsonc"
+    },
+    {
+      "id": "windsurf",
+      "display_name": "Windsurf",
+      "skills_paths": {
+        "default": "~/.codeium/windsurf/skills"
+      },
+      "mcp_paths": {
+        "default": "~/.codeium/windsurf/mcp_config.json"
+      },
+      "mcp_format": "jsonc"
+    },
+    {
+      "id": "opencode",
+      "display_name": "opencode",
+      "skills_paths": {
+        "default": "~/.config/opencode/skills"
+      },
+      "mcp_paths": {
+        "default": [
+          "~/.config/opencode/opencode.jsonc",
+          "~/.config/opencode/opencode.json"
+        ]
+      },
+      "mcp_format": "jsonc"
+    },
+    {
+      "id": "kiro",
+      "display_name": "Kiro",
+      "skills_paths": {
+        "default": "~/.kiro/skills"
+      },
+      "mcp_paths": {
+        "default": "~/.kiro/settings/mcp.json"
+      },
+      "mcp_format": "jsonc"
+    },
+    {
+      "id": "pi",
+      "display_name": "Pi",
+      "skills_paths": {
+        "default": "~/.pi/agent/skills"
+      },
+      "mcp_paths": {
+        "default": [
+          "~/.pi/agent/mcp.json",
+          "~/.config/mcp/mcp.json"
+        ]
+      },
+      "mcp_format": "jsonc"
+    },
+    {
+      "id": "qoder",
+      "display_name": "Qoder",
+      "skills_paths": {
+        "default": "~/.qoder/skills"
+      },
+      "mcp_paths": {
+        "default": "~/.qoder/mcp.json"
+      },
+      "mcp_format": "jsonc"
+    },
+    {
+      "id": "qoder-cn",
+      "display_name": "Qoder CN",
+      "skills_paths": {
+        "default": "~/.qoder-cn/skills"
+      },
+      "mcp_paths": {
+        "default": "~/.qoder-cn/mcp.json"
+      },
+      "mcp_format": "jsonc"
+    },
+    {
+      "id": "trae",
+      "display_name": "Trae",
+      "skills_paths": {
+        "default": "~/.trae/skills"
+      },
+      "mcp_paths": {
+        "default": "~/.trae/mcp.json"
+      },
+      "mcp_format": "jsonc"
+    },
+    {
+      "id": "trae-cn",
+      "display_name": "Trae CN",
+      "skills_paths": {
+        "default": "~/.trae-cn/skills"
+      },
+      "mcp_paths": {
+        "default": "~/.trae-cn/mcp.json"
+      },
+      "mcp_format": "jsonc"
+    },
+    {
+      "id": "codebuddy",
+      "display_name": "CodeBuddy",
+      "skills_paths": {
+        "default": "~/.codebuddy/skills"
+      },
+      "mcp_paths": {
+        "default": [
+          "~/.codebuddy/.mcp.json",
+          "~/.codebuddy/mcp.json",
+          "~/.codebuddy.json"
+        ]
+      },
+      "mcp_format": "jsonc"
+    },
+    {
+      "id": "kimi-code",
+      "display_name": "Kimi Code CLI",
+      "skills_paths": {
+        "default": "~/.kimi/skills"
+      },
+      "mcp_paths": {
+        "default": "~/.kimi/mcp.json"
+      },
+      "mcp_format": "jsonc"
+    },
+    {
+      "id": "iflow",
+      "display_name": "iFlow CLI",
+      "skills_paths": {
+        "default": "~/.iflow/skills"
+      },
+      "mcp_paths": {
+        "default": [
+          "~/.iflow/mcp.json",
+          "~/.iflow/settings.json"
+        ]
+      },
+      "mcp_format": "jsonc"
+    },
+    {
+      "id": "qwen-code",
+      "display_name": "Qwen Code",
+      "skills_paths": {
+        "default": "~/.qwen/skills"
+      },
+      "mcp_paths": {
+        "default": "~/.qwen/settings.json"
+      },
+      "mcp_format": "jsonc"
+    },
+    {
+      "id": "lingma",
+      "display_name": "Lingma",
+      "skills_paths": {
+        "default": "~/.lingma/skills"
+      },
+      "mcp_paths": {
+        "default": [
+          "~/.lingma/lingma_mcp.json",
+          "~/.lingma/mcp.json"
+        ]
+      },
+      "mcp_format": "jsonc"
+    },
+    {
+      "id": "mimo-code",
+      "display_name": "MiMo Code",
+      "skills_paths": {
+        "windows": [
+          "~/.config/mimocode/skills",
+          "%LOCALAPPDATA%/mimocode/skills"
+        ],
+        "default": "~/.config/mimocode/skills"
+      },
+      "mcp_paths": {
+        "windows": [
+          "~/.config/mimocode/mimocode.jsonc",
+          "~/.config/mimocode/mimocode.json",
+          "%LOCALAPPDATA%/mimocode/mimocode.jsonc",
+          "%LOCALAPPDATA%/mimocode/mimocode.json"
+        ],
+        "default": [
+          "~/.config/mimocode/mimocode.jsonc",
+          "~/.config/mimocode/mimocode.json"
+        ]
+      },
+      "mcp_format": "jsonc"
+    },
+    {
+      "id": "agents-shared",
+      "display_name": "Shared (.agents)",
+      "skills_paths": {
+        "default": [
+          "~/.agents/skills",
+          "~/.config/agents/skills"
+        ]
+      },
+      "mcp_paths": {
+        "default": [
+          "~/.agents/mcp.json",
+          "~/.agents/mcp/mcp.json",
+          "~/.config/agents/mcp.json"
+        ]
+      },
+      "mcp_format": "jsonc"
     }
   ]
 }

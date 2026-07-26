@@ -4,7 +4,8 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
-from textual.widgets import DataTable
+from rich.text import Text
+from textual.widgets import Button, DataTable
 
 from agent_skills_manager.domain.models import (
     AgentDefinition,
@@ -18,6 +19,7 @@ from agent_skills_manager.domain.models import (
 )
 from agent_skills_manager.tui import AgentSkillsApp
 from agent_skills_manager.tui.screens import AgentDetailScreen, DashboardScreen
+from agent_skills_manager.tui.screens.confirm import ConfirmScreen
 from agent_skills_manager.tui.widgets import SkillTree
 
 
@@ -76,7 +78,14 @@ async def test_inventory_and_two_pane_detail_navigation() -> None:
         current = app.screen.query_one("#current-skills", SkillTree)
         missing = app.screen.query_one("#missing-skills", SkillTree)
         assert set(current._entries) == {"review", "gsd-plan", "gsd-review"}
-        assert set(missing._entries) == {"gsd-audit", "gsd-debug", "gsap-core", "gsap-react"}
+        # gsd-review is unmanaged: installed here, so it is also a central difference.
+        assert set(missing._entries) == {
+            "gsd-audit",
+            "gsd-debug",
+            "gsap-core",
+            "gsap-react",
+            "gsd-review",
+        }
         assert ".system" not in current._entries
         labels = {node.label.plain for node in missing.root.children}
         assert any("gsap-" in label for label in labels)
@@ -85,6 +94,131 @@ async def test_inventory_and_two_pane_detail_navigation() -> None:
         await pilot.press("escape")
         await pilot.pause()
         assert isinstance(app.screen, DashboardScreen)
+
+
+@pytest.mark.asyncio
+async def test_agent_only_skills_are_pinned_in_the_difference_pane() -> None:
+    app = AgentSkillsApp(snapshot)
+    async with app.run_test(size=(120, 40)) as pilot:  # tall enough for the full headings
+        await wait_for_inventory(app, pilot)
+        await pilot.press("enter")
+        await pilot.pause()
+        detail = app.screen
+        missing = detail.query_one("#missing-skills", SkillTree)
+
+        first_group = missing.root.children[0]
+        assert "待导入中央仓库" in first_group.label.plain
+        assert first_group.data.names == ("gsd-review",)
+        assert "1 个待导入中央" in detail.query_one("#missing-heading").render().plain
+
+
+async def _select_agent_only_skill(app, pilot):
+    await wait_for_inventory(app, pilot)
+    await pilot.press("enter")
+    await pilot.pause()
+    detail = app.screen
+    missing = detail.query_one("#missing-skills", SkillTree)
+    missing.focus()
+    assert missing.select_skill("gsd-review")
+    await pilot.pause()
+    await pilot.press("space")
+    await pilot.pause()
+    return detail
+
+
+@pytest.mark.asyncio
+async def test_selecting_an_agent_only_skill_turns_the_pane_into_an_import() -> None:
+    app = AgentSkillsApp(snapshot, add_handler=lambda *_: pytest.fail("must not add"))
+    async with app.run_test(size=(120, 32)) as pilot:
+        detail = await _select_agent_only_skill(app, pilot)
+
+        assert detail._split_right_selection() == ((), ("gsd-review",))
+        button = detail.query_one("#add-skill", Button)
+        assert "导入中央仓库" in str(button.label)
+        assert button.disabled is False
+        assert "I 或按钮导入中央仓库" in detail.query_one("#missing-selection").render().plain
+
+        # A cannot add it: the central store has no copy to add from.
+        detail.action_add_skill()
+        await pilot.pause()
+        assert isinstance(app.screen, AgentDetailScreen)
+
+
+@pytest.mark.asyncio
+async def test_importing_an_agent_only_skill_from_the_tui() -> None:
+    imported: list[tuple[str, tuple[str, ...]]] = []
+    app = AgentSkillsApp(
+        snapshot,
+        import_handler=lambda agent, names: imported.append((agent.definition.id, names)),
+    )
+    async with app.run_test(size=(120, 32)) as pilot:
+        detail = await _select_agent_only_skill(app, pilot)
+
+        detail.action_import_skill()
+        await pilot.pause()
+        assert isinstance(app.screen, ConfirmScreen)
+
+        await pilot.press("y")
+        await pilot.pause()
+        await app.workers.wait_for_complete()
+        await pilot.pause()
+
+    assert imported == [("codex", ("gsd-review",))]
+
+
+@pytest.mark.asyncio
+async def test_import_refuses_a_skill_the_central_store_already_has() -> None:
+    app = AgentSkillsApp(snapshot, import_handler=lambda *_: pytest.fail("must not import"))
+    async with app.run_test(size=(120, 32)) as pilot:
+        await wait_for_inventory(app, pilot)
+        await pilot.press("enter")
+        await pilot.pause()
+        detail = app.screen
+        missing = detail.query_one("#missing-skills", SkillTree)
+        missing.focus()
+        assert missing.select_skill("gsd-audit")  # central has it; this agent does not
+        await pilot.pause()
+        await pilot.press("space")
+        await pilot.pause()
+
+        detail.action_import_skill()
+        await pilot.pause()
+        assert isinstance(app.screen, AgentDetailScreen)
+
+
+@pytest.mark.asyncio
+async def test_dashboard_lists_installed_hosts_first_and_dims_the_rest() -> None:
+    base = snapshot()
+    base.agents[0].installed = False  # Codex is defined first but absent here.
+    app = AgentSkillsApp(lambda: base)
+    async with app.run_test(size=(120, 32)) as pilot:
+        await wait_for_inventory(app, pilot)
+        dashboard = app.screen
+
+        assert dashboard._agent_ids == ["antigravity", "codex"]
+        assert dashboard.selected_agent_id == "antigravity"
+
+        table = dashboard.query_one("#agents", DataTable)
+        present, absent = table.get_row_at(0), table.get_row_at(1)
+        assert all(not isinstance(cell, Text) for cell in present)
+        assert all(isinstance(cell, Text) and cell.style for cell in absent)
+
+
+@pytest.mark.asyncio
+async def test_dashboard_summary_ignores_hosts_that_are_not_installed() -> None:
+    """Most defined hosts are absent on any one machine; they are not a to-do item."""
+    base = snapshot()
+    base.agents[1].installed = False
+    base.agents[1].skills = [SkillEntry("gsd-audit", Path("/tmp/ag"), ItemStatus.MISSING)]
+    app = AgentSkillsApp(lambda: base)
+    async with app.run_test(size=(120, 32)) as pilot:
+        await wait_for_inventory(app, pilot)
+
+        summary = app.screen.query_one("#summary").render().plain
+
+        assert "2 个 Agent" in summary
+        assert "1 个已安装" in summary
+        assert "1 个需要处理" in summary
 
 
 @pytest.mark.asyncio

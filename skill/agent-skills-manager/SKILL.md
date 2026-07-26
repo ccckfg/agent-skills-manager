@@ -1,6 +1,6 @@
 ---
 name: agent-skills-manager
-description: "Manage local AI Agent Skills with the dependency-free scripts bundled inside this Skill. Use when inspecting, comparing, importing, or synchronizing Skills across Claude Code, Codex, Cursor, or Antigravity; listing their MCP servers; or safely reviewing MCP and other agent configuration. The bundled script works without installing the optional TUI."
+description: "Manage local AI Agent Skills with the dependency-free scripts bundled inside this Skill. Use when inspecting, comparing, importing, or synchronizing Skills across Claude Code, Codex, Cursor, Antigravity, Gemini CLI, GitHub Copilot CLI, Windsurf, opencode, Kiro, Pi, Qoder, Trae, CodeBuddy, Kimi Code, iFlow, Qwen Code, Lingma, MiMo Code or the shared ~/.agents directory; listing their MCP servers; or safely reviewing MCP and other agent configuration. The bundled script works without installing the optional TUI."
 ---
 
 # Agent Skills Manager
@@ -20,12 +20,16 @@ The script uses only the Python standard library. Run it from any working direct
 
 Run `status --json` before planning any change. Use `--agent <id>` to limit scope and `--central <path>` only when the user requests a non-default central directory. The default is `~/.agent/skills`.
 
-Use `diff --json` when the user needs exact central-versus-agent differences. Add
-`--skill <name>` to narrow the comparison. The command is read-only and reports
+`status` reports presence and link health and returns `"verified": false`. It does not
+prove that two directories hold the same bytes, so a Skill installed at a different
+version still reports `ready`. Use `diff --json` for exact central-versus-agent
+differences; add `--skill <name>` to narrow it. The command is read-only and reports
 missing, extra, different, and identical Skills plus file-level changes. Identical
-Skills are counted but omitted unless `--all` is supplied.
+Skills are counted but omitted unless `--all` is supplied. `status --verify` hashes
+every managed Skill in every installed host, so reach for `diff` first.
 
-Read `references/commands.md` for exact arguments and examples. Do not guess flags.
+Read `references/commands.md` for exact arguments and examples. Do not guess flags or
+agent IDs.
 
 ## Apply a Skills change
 
@@ -65,4 +69,5 @@ Do not install it unless requested. The TUI is for the user to browse interactiv
 ## References
 
 - Read `references/commands.md` for bundled script commands.
-- Read only the active host reference: `references/claude-code.md`, `references/codex.md`, `references/cursor.md`, or `references/antigravity.md`.
+- Read `references/agents.md` for every supported host's directories, MCP format, and quirks.
+- Read the dedicated host reference only when the request targets it: `references/claude-code.md`, `references/codex.md`, `references/cursor.md`, or `references/antigravity.md`.

@@ -1,6 +1,6 @@
 # Agent Skills Manager
 
-> 只复制一个自带脚本的 Skill，就能让 Agent 管理散落在 Claude Code、Codex、Cursor 和 Antigravity 里的 Skills；需要时再安装漂亮的 TUI 随时查看。
+> 只复制一个自带脚本的 Skill，就能让 Agent 管理散落在 Claude Code、Codex、Cursor、Antigravity、Qoder、Trae、CodeBuddy、Kimi Code 等 21 个国内外 Agent 里的 Skills；需要时再安装漂亮的 TUI 随时查看。
 
 [![Python 3.9+](https://img.shields.io/badge/portable%20script-Python%203.9%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![uv](https://img.shields.io/badge/managed%20by-uv-DE5FE9)](https://docs.astral.sh/uv/)
@@ -36,9 +36,9 @@ Agent Skills Manager 就是为这件事准备的。它是一个**管理 Skills �
 flowchart LR
     S["便携 Skill<br/>自带纯 Python 脚本"] --> C
     C["中央 Skills 仓库<br/>唯一可信来源"]
-    C -->|软链接或复制| A["Claude Code"]
-    C -->|软链接或复制| B["Codex"]
-    C -->|软链接或复制| D["Cursor"]
+    C -->|软链接或复制| A["Claude Code<br/>Codex / Cursor"]
+    C -->|软链接或复制| B["Qoder / Trae<br/>CodeBuddy / Kimi Code"]
+    C -->|软链接或复制| D["Gemini CLI / Copilot<br/>Windsurf / opencode …"]
     C -->|仅复制| E["Antigravity"]
     A -.只读扫描 MCP.-> S
     B -.只读扫描 MCP.-> S
@@ -67,10 +67,11 @@ flowchart LR
 ## 功能亮点
 
 - 🧰 **中央 Skills 仓库**：一处维护，多处使用。
+- 🌏 **覆盖 21 个 Agent**：国内外常见 CLI 与 IDE 都在支持范围内。
 - 📦 **Skill 自带脚本**：复制目录即可使用，不依赖本项目安装或第三方 Python 包。
 - 🖥️ **可选现代 TUI**：不用记住所有目录，一眼查看四个 Agent。
 - 🔗 **两种同步方式**：每个 Agent 可选择软链接或复制。
-- 📥 **首次导入**：把 Agent 中已有、尚未纳管的 Skill 复制到中央仓库。
+- 📥 **首次导入**：把 Agent 中已有、尚未纳管的 Skill 复制到中央仓库，TUI 里按 `I` 即可。
 - 👀 **先预览再执行**：内嵌脚本默认只输出计划，显式 `--apply` 才写文件。
 - 🛟 **替换前备份**：更新不同版本时，旧目录会带时间戳保存下来。
 - 🔍 **MCP 只读盘点**：显示已发现的 MCP，不擅自修改配置。
@@ -78,15 +79,38 @@ flowchart LR
 
 ## 支持范围
 
-| Agent | 默认 Skills 目录 | 默认 MCP 配置 | 同步方式 |
-|---|---|---|---|
-| Claude Code | `~/.claude/skills` | `~/.claude.json` | 复制 / 软链接 |
-| Codex | `~/.codex/skills` | `~/.codex/config.toml` | 复制 / 软链接 |
-| Cursor | `~/.cursor/skills` | `~/.cursor/mcp.json` | 复制 / 软链接 |
-| Antigravity | `~/.gemini/config/skills` | `~/.gemini/antigravity/mcp_config.json` | **仅复制** |
+目前覆盖 21 个国内外常见 Agent。除 Antigravity 外都支持复制与软链接两种方式。
+
+| Agent | 默认 Skills 目录 | 默认 MCP 配置 |
+|---|---|---|
+| Claude Code | `~/.claude/skills` | `~/.claude.json` |
+| Codex | `~/.codex/skills` | `~/.codex/config.toml` |
+| Cursor | `~/.cursor/skills` | `~/.cursor/mcp.json` |
+| Antigravity（**仅复制**） | `~/.gemini/config/skills` | `~/.gemini/antigravity/mcp_config.json` |
+| Gemini CLI | `~/.gemini/skills` | `~/.gemini/settings.json` |
+| GitHub Copilot CLI | `~/.copilot/skills` | `~/.copilot/mcp-config.json` |
+| Windsurf | `~/.codeium/windsurf/skills` | `~/.codeium/windsurf/mcp_config.json` |
+| opencode | `~/.config/opencode/skills` | `~/.config/opencode/opencode.jsonc` |
+| Kiro | `~/.kiro/skills` | `~/.kiro/settings/mcp.json` |
+| Pi | `~/.pi/agent/skills` | `~/.pi/agent/mcp.json` |
+| Qoder | `~/.qoder/skills` | `~/.qoder/mcp.json` |
+| Qoder CN | `~/.qoder-cn/skills` | `~/.qoder-cn/mcp.json` |
+| Trae | `~/.trae/skills` | `~/.trae/mcp.json` |
+| Trae CN | `~/.trae-cn/skills` | `~/.trae-cn/mcp.json` |
+| CodeBuddy | `~/.codebuddy/skills` | `~/.codebuddy/.mcp.json` |
+| Kimi Code CLI | `~/.kimi/skills` | `~/.kimi/mcp.json` |
+| iFlow CLI | `~/.iflow/skills` | `~/.iflow/mcp.json` |
+| Qwen Code | `~/.qwen/skills` | `~/.qwen/settings.json` |
+| Lingma 通义灵码 | `~/.lingma/skills` | `~/.lingma/lingma_mcp.json` |
+| MiMo Code | `~/.config/mimocode/skills` | `~/.config/mimocode/mimocode.jsonc` |
+| 通用 `.agents` 目录 | `~/.agents/skills` | `~/.agents/mcp.json` |
+
+最后一行不是某个具体产品，而是 Cline、Zed、Warp、Amp、Replit、Pi、Kimi Code、GitHub Copilot CLI 都会读取的共享位置。同步一次即可同时惠及多个 Agent。
+
+有些 Agent 在不同版本里换过目录。这类情况会配置多个候选路径，管理器优先使用本机真实存在的那一个，都不存在时回退到官方推荐路径。因此同一个版本在两台电脑上显示的路径可能不同。
 
 > [!NOTE]
-> "未安装"不一定代表程序判断错了。如果某个 Agent 从未创建过 Skills 或 MCP 目录，管理器也会把它标记为未安装。
+> "未安装"不一定代表程序判断错了。如果某个 Agent 从未创建过 Skills 或 MCP 目录，管理器也会把它标记为未安装。例如 Kiro 会创建 `~/.kiro/steering`，但那不是 Skills 目录。
 
 ## 安装 Skill（让 Agent 帮你完成）
 
@@ -142,10 +166,26 @@ agent-skills-manager
 
 ## TUI 怎么操作？
 
-TUI 会先显示界面，再在后台快速扫描本机目录。方向键选择 Agent，按 `Enter` 后会看到两个可滚动面板：
+TUI 会先显示界面，再在后台快速扫描本机目录。总览里**本机已发现的 Agent 排在前面**，未发现的排在后面并压暗显示，光标默认落在第一个已发现的 Agent 上。
+
+状态列的三种含义：
+
+| 状态 | 含义 |
+|---|---|
+| `● 就绪` | 已安装，没有需要你处理的问题 |
+| `◆ 待处理` | 已安装，但有软链接断了、存在尚未纳管的 Skill，或读取配置出错 |
+| `○ 未发现` | Skills 目录和 MCP 配置都不存在，这台机器上大概没装 |
+
+**中央仓库有、这个 Agent 没有的 Skill 不算问题**，只会计入「待添加」列。你本来就不必把每个 Skill 装到每个 Agent 上。只有那些你必须做决定的情况才会标成 `待处理`。
+
+TUI 用的是快速扫描，不逐字节比较内容，所以"版本不同"不会显示为 `待处理`。需要精确比较请用内嵌脚本的 `diff`，或 `status --verify`（此时内容不一致会计入 `待处理`）。
+
+方向键选择 Agent，按 `Enter` 后会看到两个可滚动面板：
 
 - 左侧是这个 Agent 当前已有的 Skills；
-- 右侧是中央仓库有、但这个 Agent 还没有的 Skills；
+- 右侧是它和中央仓库的**双向差异**：
+  - 中央有、这个 Agent 还没有的 → 按 `A` 添加；
+  - 这个 Agent 独有、中央仓库还没收录的 → 会置顶成「此 Agent 独有 · 待导入中央仓库」一组；
 - `gsd-`、`gsap-` 这类共享固定前缀的 Skills 会自动折叠成系列，并可整组选中；
 - `.system` 等点号开头的隐藏目录不会进入管理清单。
 
@@ -157,13 +197,18 @@ TUI 会先显示界面，再在后台快速扫描本机目录。方向键选择 
 |---|---|
 | `Enter` | 打开选中 Agent；在详情页展开或收起分组 |
 | `Space` | 选中/取消当前 Skill；停在系列节点时切换整个系列 |
-| `A` | 把右侧所有已选 Skills 添加到当前 Agent |
+| `A` | 把右侧所有已选 Skills 添加到当前 Agent（独有 Skill 无法添加，见下） |
+| `I` | 把右侧选中的「此 Agent 独有」Skills 导入中央仓库 |
 | `D` / `Delete` | 从当前 Agent 移除左侧所有已选 Skills |
 | `Esc` | 返回总览 |
 | `R` | 重新扫描本地环境 |
 | `M` | 在 Copy 与 Link 之间切换 |
 | `O` | 在文件管理器中打开 Skills 目录 |
 | `Q` | 退出 |
+
+「待导入」这一组选中后按 `I` 就能直接导入中央仓库，同样会先弹确认框。导入是**复制**，Agent 里的原目录保持不变；完成后它就变成普通的中央 Skill，可以同步给其他 Agent。
+
+这一组不能用 `A` 添加 —— 中央仓库还没有这份 Skill，没有可复制的来源。所以当你的选择全部来自这一组时，右下角的按钮会自动变成「导入中央仓库」。
 
 > [!IMPORTANT]
 > 添加和移除都会先显示确认框。移除不是永久删除：原目录会移动到 `~/.agent/backups/<agent-id>/`。Antigravity 不支持软链接，按 `M` 不会切换到 Link。
@@ -276,12 +321,16 @@ agent-skills-manager --config ./my-settings.yaml status
 
 常见原因包括：
 
-- 中央仓库有 Skill，但该 Agent 还没同步；
-- Agent 中的副本与中央版本不同；
 - 软链接已经失效；
-- Agent 中存在尚未导入中央仓库的 Skill。
+- Agent 中存在尚未导入中央仓库的 Skill；
+- 读取该 Agent 的 MCP 配置时出错；
+- 使用了 `--verify` 或 `sync`，发现副本与中央版本内容不同。
+
+单纯"中央有、这个 Agent 没有"不会触发 `Needs attention`，那只是「待添加」计数。
 
 先运行 `status`，再使用 `import --dry-run` 或 `sync --dry-run` 判断是哪一种情况。
+
+注意 `status` 默认只看"在不在、链接有没有断"，不逐字节比较内容，因此版本不同的 Skill 也会显示为就绪。需要精确比较时，用内嵌脚本的 `diff`，或加上 `--verify`。这样默认扫描才能在支持 20 多个 Agent 之后依然是秒级。
 
 ### 2. Windows 创建软链接失败怎么办？
 
@@ -364,7 +413,7 @@ uv build
 ## 路线图
 
 - [ ] TUI 同步前展示可确认的差异计划
-- [ ] 在界面中完成首次导入
+- [x] 在界面中完成首次导入
 - [ ] 支持自定义 Agent 与自定义路径
 - [ ] Skills 冲突的可视化比较
 - [ ] 中央仓库的 Git 备份与更新提示
@@ -383,6 +432,8 @@ uv build
 4. 是否支持软链接；
 5. 不包含秘密信息的示例配置；
 6. 对应测试。
+
+Agent 定义同时存在于两处，必须一起改：`src/agent_skills_manager/resources/agents.yaml`（可选应用）与 `skill/agent-skills-manager/scripts/agent_profiles.json`（便携脚本）。测试会校验两者一致。同时补充 `skill/agent-skills-manager/references/agents.md` 里的表格与本文的支持范围表。
 
 描述 Bug 时，建议附上操作系统、Python/uv 版本、执行命令和已隐藏隐私信息的错误输出。
 

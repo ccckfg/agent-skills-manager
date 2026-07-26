@@ -22,9 +22,16 @@ Always quote the script path when it contains spaces.
 <run> status --json
 <run> status --agent codex --json
 <run> status --central /custom/skills --json
+<run> status --verify --json
 ```
 
 `status` reads Skills directories and MCP server names. It does not write files.
+
+By default `status` reports presence and link health only, and the payload carries
+`"verified": false`. A Skill that exists under a different version still reports
+`ready`. Add `--verify` to hash file contents, or use `diff` for the exact change
+set. Prefer the default: with every supported host defined, verification re-reads
+every managed Skill in every installed host.
 
 ## Compare Skills
 
@@ -80,13 +87,22 @@ Repeat `--agent` to select multiple hosts. Omit it to select all defined hosts. 
 
 ## Agent IDs
 
-- `claude-code`
-- `codex`
-- `cursor`
-- `antigravity`
+`claude-code`, `codex`, `cursor`, `antigravity`, `gemini-cli`, `copilot-cli`,
+`windsurf`, `opencode`, `kiro`, `pi`, `qoder`, `qoder-cn`, `trae`, `trae-cn`,
+`codebuddy`, `kimi-code`, `iflow`, `qwen-code`, `lingma`, `mimo-code`,
+`agents-shared`.
+
+`--agent` rejects an unknown ID, so read the error rather than guessing a name.
+See `references/agents.md` for each host's directories and quirks.
 
 ## Output contract
 
+- JSON status results contain `central`, `verified`, and `agents`.
+- Each agent carries `present` and `missing` counts alongside the full `skills` array.
+- `attention` means a state the user must resolve: a broken link, an unmanaged Skill,
+  a read error, or — only when contents were compared — a Skill that differs. A Skill
+  the central store has but the host does not is reported in `missing`, never as
+  `attention`. Do not describe a `missing` count as a problem.
 - JSON plans contain `operation`, `applied`, `actions`, `warnings`, and `backups`.
 - JSON diff results contain per-agent `summary` and `skills` arrays with file-level changes.
 - A plan without `--apply` has `applied: false` and changes no files.

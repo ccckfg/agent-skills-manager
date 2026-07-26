@@ -29,7 +29,15 @@ def _file_digest(path: Path) -> str:
     return checksum.hexdigest()
 
 
-def _entries(root: Path) -> Dict[str, Entry]:
+def _entries(root: Path, cache: Optional[Dict[str, Dict[str, Entry]]] = None) -> Dict[str, Entry]:
+    """Index one Skill directory, reusing an earlier walk of the same path.
+
+    Every agent is compared against the same central Skills, so the cache keeps the
+    central store from being re-read once per agent.
+    """
+    key = str(root)
+    if cache is not None and key in cache:
+        return cache[key]
     entries = {}
 
     def visit(directory: Path) -> None:
@@ -51,11 +59,17 @@ def _entries(root: Path) -> Dict[str, Entry]:
 
     if root.is_dir():
         visit(root)
+    if cache is not None:
+        cache[key] = entries
     return entries
 
 
-def _file_differences(central: Path, agent: Path) -> List[FileDifference]:
-    central_entries = _entries(central)
+def _file_differences(
+    central: Path,
+    agent: Path,
+    cache: Optional[Dict[str, Dict[str, Entry]]] = None,
+) -> List[FileDifference]:
+    central_entries = _entries(central, cache)
     agent_entries = _entries(agent)
     differences = []
     for path in sorted(set(central_entries) | set(agent_entries), key=str.lower):
@@ -79,6 +93,7 @@ def _one_agent(
     central_skills: Dict[str, Path],
     profile: AgentProfile,
     skill_names: Optional[Set[str]],
+    cache: Optional[Dict[str, Dict[str, Entry]]] = None,
 ) -> AgentDifference:
     agent_skills = child_directories(profile.skills_path)
     names = set(central_skills) | set(agent_skills)
@@ -93,7 +108,7 @@ def _one_agent(
         elif agent is None:
             status, files = "missing", []
         else:
-            files = _file_differences(central, agent)
+            files = _file_differences(central, agent, cache)
             status = "different" if files else "identical"
         skills.append(
             SkillDifference(
@@ -114,4 +129,5 @@ def compare(
     skill_names: Optional[Set[str]] = None,
 ) -> List[AgentDifference]:
     central_skills = child_directories(central)
-    return [_one_agent(central_skills, profile, skill_names) for profile in profiles]
+    cache = {}  # type: Dict[str, Dict[str, Entry]]
+    return [_one_agent(central_skills, profile, skill_names, cache) for profile in profiles]

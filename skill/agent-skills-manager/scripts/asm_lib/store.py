@@ -32,7 +32,15 @@ def child_directories(root: Path) -> Dict[str, Path]:
     }
 
 
-def digest(root: Path) -> str:
+def digest(root: Path, cache: Optional[Dict[str, str]] = None) -> str:
+    """Hash a Skill directory, reusing an earlier result for the same path.
+
+    One scan compares the same central Skill against every agent, so without the
+    cache the central store is re-read once per agent.
+    """
+    key = str(root)
+    if cache is not None and key in cache:
+        return cache[key]
     checksum = hashlib.sha256()
     for item in sorted(root.rglob("*"), key=lambda value: value.as_posix()):
         if "__pycache__" in item.parts or item.suffix == ".pyc" or item.name == ".DS_Store":
@@ -42,11 +50,14 @@ def digest(root: Path) -> str:
             checksum.update(b"LINK" + str(item.readlink()).encode("utf-8"))
         elif item.is_file():
             checksum.update(b"FILE" + item.read_bytes())
-    return checksum.hexdigest()
+    result = checksum.hexdigest()
+    if cache is not None:
+        cache[key] = result
+    return result
 
 
-def equivalent(left: Path, right: Path) -> bool:
-    return left.exists() and right.exists() and digest(left) == digest(right)
+def equivalent(left: Path, right: Path, cache: Optional[Dict[str, str]] = None) -> bool:
+    return left.exists() and right.exists() and digest(left, cache) == digest(right, cache)
 
 
 def create_link(source: Path, destination: Path) -> None:

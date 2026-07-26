@@ -11,7 +11,7 @@ from textual.events import Resize
 from textual.screen import Screen
 from textual.widgets import Button, Footer, Static, Tree
 
-from agent_skills_manager.domain.models import AgentInventory, ItemStatus
+from agent_skills_manager.domain.models import AgentInventory, ItemStatus, SkillEntry
 from agent_skills_manager.tui.layout import DetailLayout, detail_layout
 from agent_skills_manager.tui.screens.confirm import ConfirmScreen
 from agent_skills_manager.tui.widgets import SkillTree
@@ -23,6 +23,7 @@ if TYPE_CHECKING:
 class AgentDetailScreen(Screen[None]):
     BINDINGS = [
         Binding("a", "add_skill", "添加"),
+        Binding("i", "import_skill", "导入中央"),
         Binding("d", "remove_skill", "移除"),
         Binding("delete", "remove_skill", "移除", show=False),
         Binding("m", "toggle_mode", "切换模式"),
@@ -114,17 +115,26 @@ class AgentDetailScreen(Screen[None]):
 
     def _render_agent(self) -> None:
         current = [entry for entry in self.agent.skills if entry.status is not ItemStatus.MISSING]
-        missing = [entry for entry in self.agent.skills if entry.status is ItemStatus.MISSING]
+        addable = self._addable()
+        importable = self._importable()
         self.query_one("#agent-title", Static).update(self.agent.definition.display_name)
         self.query_one("#detail-context", Static).update(str(self.agent.skills_path))
-        self.query_one("#agent-meta", Static).update(
+        meta = (
             f"{self._status()}  ·  {self.agent.preference.skills_mode.value} 模式"
-            f"  ·  {len(current)} 已有  ·  {len(missing)} 待添加"
+            f"  ·  {len(current)} 已有  ·  {len(addable)} 待添加"
         )
+        if importable:
+            meta += f"  ·  {len(importable)} 待导入"
+        self.query_one("#agent-meta", Static).update(meta)
         self.query_one("#current-skills", SkillTree).load_entries(
             current, "这个 Agent 还没有 Skill"
         )
-        self.query_one("#missing-skills", SkillTree).load_entries(missing, "已经与中央仓库一致")
+        self.query_one("#missing-skills", SkillTree).load_entries(
+            addable + importable,
+            "已经与中央仓库一致",
+            pinned_names=[entry.name for entry in importable],
+            pinned_label="此 Agent 独有 · 待导入中央仓库",
+        )
         self._render_selection("current")
         self._render_selection("missing")
         self.query_one("#mcp-strip", Static).update(self._mcp_summary())
@@ -143,11 +153,31 @@ class AgentDetailScreen(Screen[None]):
         errors = f"  ·  {len(self.agent.errors)} 个错误" if self.agent.errors else ""
         return f"MCP  {names}{errors}\n配置  {self.agent.mcp_path}"
 
+    def _addable(self) -> list[SkillEntry]:
+        """Skills the central store has and this agent does not."""
+        return [entry for entry in self.agent.skills if entry.status is ItemStatus.MISSING]
+
+    def _importable(self) -> list[SkillEntry]:
+        """Skills only this agent has; the central store has never seen them."""
+        return [entry for entry in self.agent.skills if entry.status is ItemStatus.UNMANAGED]
+
     def _selected_current(self) -> tuple[str, ...]:
         return self.query_one("#current-skills", SkillTree).selected_names
 
     def _selected_missing(self) -> tuple[str, ...]:
         return self.query_one("#missing-skills", SkillTree).selected_names
+
+    def _split_right_selection(self) -> tuple[tuple[str, ...], tuple[str, ...]]:
+        """Separate the right pane's selection into "add here" and "import to central"."""
+        selected = self._selected_missing()
+        importable = {entry.name for entry in self._importable()}
+        return (
+            tuple(name for name in selected if name not in importable),
+            tuple(name for name in selected if name in importable),
+        )
+
+    def _import_hint(self, names: tuple[str, ...]) -> str:
+        return f"{self._selection_preview(names)} 只存在于此 Agent，按 I 导入中央仓库。"
 
     def on_tree_node_highlighted(self, event: Tree.NodeHighlighted) -> None:
         if event.control.id == "current-skills":
@@ -163,7 +193,17 @@ class AgentDetailScreen(Screen[None]):
         tree = self.query_one(f"#{pane}-skills", SkillTree)
         selected = tree.selected_names
         entry = tree.entry(tree.selected_skill)
-        if selected:
+        actionable = selected
+        importing = False
+        if pane == "missing":
+            actionable, importable = self._split_right_selection()
+            # A selection made only of agent-only Skills turns the pane into an import.
+            importing = bool(importable) and not actionable
+            if importing:
+                actionable = importable
+        if importing:
+            text = f"已选 {len(actionable)} 个独有 Skill  ·  I 或按钮导入中央仓库"
+        elif selected:
             text = f"已选择 {len(selected)} 个  ·  Space 可取消  ·  {self._selection_preview(selected)}"
         elif entry:
             text = f"○ 未选  ·  {entry.status.value}  ·  {entry.path}"
@@ -174,25 +214,29 @@ class AgentDetailScreen(Screen[None]):
         self.query_one(f"#{pane}-selection", Static).update(text)
         button_id = "#remove-skill" if pane == "current" else "#add-skill"
         button = self.query_one(button_id, Button)
-        verb = "移除" if pane == "current" else "添加"
-        button.label = f"{verb}所选" + (f"  ·  {len(selected)}" if selected else "")
-        button.disabled = self._busy or not selected
+        if pane == "current":
+            verb = "移除所选"
+        else:
+            verb = "导入中央仓库" if importing else "添加所选"
+        button.label = verb + (f"  ·  {len(actionable)}" if actionable else "")
+        button.disabled = self._busy or not actionable
         self._render_heading(pane)
 
     def _render_heading(self, pane: str) -> None:
         tree = self.query_one(f"#{pane}-skills", SkillTree)
         selected = len(tree.selected_names)
+        importable = len(self._importable()) if pane == "missing" else 0
         if self._layout is not DetailLayout.FULL:
-            label = "当前 Agent" if pane == "current" else "中央缺少"
+            label = "当前 Agent" if pane == "current" else "中央差异"
             text = f"{label}  ·  {tree.entry_count} Skills"
             if selected:
                 text += f"  ·  已选 {selected}"
+        elif pane == "current":
+            text = f"已有 {tree.entry_count} 个 Skills"
         else:
-            text = (
-                f"已有 {tree.entry_count} 个 Skills"
-                if pane == "current"
-                else f"中央可添加 {tree.entry_count} 个 Skills"
-            )
+            text = f"中央可添加 {tree.entry_count - importable} 个 Skills"
+            if importable:
+                text += f"  ·  {importable} 个待导入中央"
         self.query_one(f"#{pane}-heading", Static).update(text)
 
     def _selection_preview(self, names: tuple[str, ...]) -> str:
@@ -203,15 +247,21 @@ class AgentDetailScreen(Screen[None]):
         if event.button.id == "back":
             self.action_back()
         elif event.button.id == "add-skill":
-            self.action_add_skill()
+            addable, importable = self._split_right_selection()
+            self.action_import_skill() if importable and not addable else self.action_add_skill()
         elif event.button.id == "remove-skill":
             self.action_remove_skill()
 
     def action_add_skill(self) -> None:
-        names = self._selected_missing()
+        names, importable = self._split_right_selection()
+        if importable and not names:
+            self.notify(self._import_hint(importable), severity="warning")
+            return
         if not names or self._busy:
             self.notify("请先在右侧用 Space 选择 Skill", severity="warning")
             return
+        if importable:
+            self.notify(self._import_hint(importable), severity="warning")
         self.app.push_screen(
             ConfirmScreen(
                 f"添加 {len(names)} 个 Skills",
@@ -227,6 +277,32 @@ class AgentDetailScreen(Screen[None]):
         if confirmed:
             self.set_busy(True)
             self.manager.add_skills(self.agent.definition.id, names)
+
+    def action_import_skill(self) -> None:
+        addable, names = self._split_right_selection()
+        if not names or self._busy:
+            hint = (
+                "这些 Skill 中央仓库已经有了，按 A 添加到此 Agent"
+                if addable
+                else "请先在右侧选择「此 Agent 独有」分组里的 Skill"
+            )
+            self.notify(hint, severity="warning")
+            return
+        self.app.push_screen(
+            ConfirmScreen(
+                f"导入 {len(names)} 个 Skills",
+                f"把 {self._selection_preview(names)} 从 "
+                f"{self.agent.definition.display_name} 复制到中央仓库，"
+                "之后就能同步给其他 Agent。此 Agent 中的原目录保持不变。",
+                f"确认导入 {len(names)} 个",
+            ),
+            lambda confirmed: self._confirmed_import(names, confirmed),
+        )
+
+    def _confirmed_import(self, names: tuple[str, ...], confirmed: bool | None) -> None:
+        if confirmed:
+            self.set_busy(True)
+            self.manager.import_skills(self.agent.definition.id, names)
 
     def action_remove_skill(self) -> None:
         names = self._selected_current()

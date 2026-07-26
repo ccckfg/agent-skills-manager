@@ -137,6 +137,84 @@ def test_empty_mcp_configuration_is_treated_as_unconfigured(tmp_path):
     assert payload["agents"][0]["errors"] == []
 
 
+def test_portable_status_counts_missing_without_demanding_attention(tmp_path):
+    make_skill(tmp_path / ".agent" / "skills" / "installed")
+    make_skill(tmp_path / ".agent" / "skills" / "not-installed")
+    make_skill(tmp_path / ".codex" / "skills" / "installed")
+
+    payload = run_script(tmp_path, "status", "--agent", "codex", "--json")
+
+    assert payload["agents"][0]["present"] == 1
+    assert payload["agents"][0]["missing"] == 1
+    assert payload["agents"][0]["attention"] is False
+
+
+def test_portable_status_flags_an_unmanaged_skill(tmp_path):
+    make_skill(tmp_path / ".codex" / "skills" / "agent-only")
+
+    payload = run_script(tmp_path, "status", "--agent", "codex", "--json")
+
+    assert payload["agents"][0]["attention"] is True
+
+
+def test_portable_status_compares_contents_only_when_verifying(tmp_path):
+    make_skill(tmp_path / ".agent" / "skills" / "demo", "central")
+    make_skill(tmp_path / ".codex" / "skills" / "demo", "local")
+
+    fast = run_script(tmp_path, "status", "--agent", "codex", "--json")
+    verified = run_script(tmp_path, "status", "--agent", "codex", "--verify", "--json")
+
+    assert fast["verified"] is False
+    assert fast["agents"][0]["skills"][0]["status"] == "ready"
+    assert verified["verified"] is True
+    assert verified["agents"][0]["skills"][0]["status"] == "different"
+
+
+def test_portable_sync_still_detects_a_changed_skill_without_status_verification(tmp_path):
+    make_skill(tmp_path / ".agent" / "skills" / "demo", "central")
+    make_skill(tmp_path / ".codex" / "skills" / "demo", "local")
+
+    plan = run_script(tmp_path, "sync", "--agent", "codex", "--json")
+
+    assert plan["actions"][0]["skill"] == "demo"
+    assert plan["actions"][0]["replace"] is True
+
+
+def test_portable_script_manages_a_newly_supported_agent(tmp_path):
+    make_skill(tmp_path / ".agent" / "skills" / "demo", "central")
+    config = tmp_path / ".qoder" / "mcp.json"
+    config.parent.mkdir(parents=True)
+    config.write_text('{"mcpServers": {"context7": {"command": "npx"}}}', encoding="utf-8")
+
+    applied = run_script(tmp_path, "sync", "--agent", "qoder", "--json", "--apply")
+    payload = run_script(tmp_path, "status", "--agent", "qoder", "--json")
+
+    assert applied["applied"] is True
+    assert (tmp_path / ".qoder" / "skills" / "demo" / "SKILL.md").is_file()
+    assert payload["agents"][0]["mcps"] == ["context7"]
+
+
+def test_portable_script_reads_an_opencode_style_mcp_block(tmp_path):
+    config = tmp_path / ".config" / "opencode" / "opencode.json"
+    config.parent.mkdir(parents=True)
+    config.write_text('{"mcp": {"github": {"type": "local"}}}', encoding="utf-8")
+
+    payload = run_script(tmp_path, "status", "--agent", "opencode", "--json")
+
+    assert payload["agents"][0]["mcps"] == ["github"]
+
+
+def test_portable_script_picks_the_mcp_candidate_that_exists(tmp_path):
+    legacy = tmp_path / ".codebuddy" / "mcp.json"
+    legacy.parent.mkdir(parents=True)
+    legacy.write_text('{"mcpServers": {"legacy": {}}}', encoding="utf-8")
+
+    payload = run_script(tmp_path, "status", "--agent", "codebuddy", "--json")
+
+    assert payload["agents"][0]["mcp_path"] == str(legacy)
+    assert payload["agents"][0]["mcps"] == ["legacy"]
+
+
 def test_non_skill_directories_are_ignored(tmp_path):
     make_skill(tmp_path / ".codex" / "skills" / "real-skill")
     make_skill(tmp_path / ".codex" / "skills" / ".system")

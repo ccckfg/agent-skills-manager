@@ -38,8 +38,24 @@ class AgentInventory:
     errors: List[str] = field(default_factory=list)
 
     @property
+    def missing_skills(self) -> int:
+        return sum(item.status == "missing" for item in self.skills)
+
+    @property
+    def present_skills(self) -> int:
+        return sum(item.status != "missing" for item in self.skills)
+
+    @property
     def needs_attention(self) -> bool:
-        return bool(self.errors) or any(item.status != "ready" for item in self.skills)
+        """Flag only states the user has to resolve, not Skills they never added.
+
+        A Skill that exists centrally but not here is an ordinary choice and is
+        counted separately. Broken links, unmanaged copies and content conflicts are
+        real problems, so they keep this true.
+        """
+        return bool(self.errors) or any(
+            item.status not in ("ready", "missing") for item in self.skills
+        )
 
     def as_dict(self) -> Dict[str, object]:
         return {
@@ -48,6 +64,8 @@ class AgentInventory:
             "installed": self.installed,
             "skills_path": str(self.profile.skills_path),
             "mcp_path": str(self.profile.mcp_path),
+            "present": self.present_skills,
+            "missing": self.missing_skills,
             "skills": [item.as_dict() for item in self.skills],
             "mcps": self.mcps,
             "errors": self.errors,

@@ -1,7 +1,7 @@
 import json
 import re
 from pathlib import Path
-from typing import Dict, Iterable, List, Set
+from typing import Dict, Iterable, List, Optional, Set
 
 from .models import AgentInventory, AgentProfile, SkillRecord
 from .store import child_directories, equivalent, is_link
@@ -57,6 +57,23 @@ def _collect_named_tables(value: object, key_name: str) -> Set[str]:
     return names
 
 
+def _nested_mcp_block(data: object) -> Set[str]:
+    """Read the top-level ``mcp`` block used by opencode-style configuration files.
+
+    Some hosts nest servers under ``mcp.servers``; opencode and its forks put the
+    servers directly under ``mcp``, alongside scalar options. Only mapping values
+    can be a server definition, so scalars are ignored.
+    """
+    if not isinstance(data, dict):
+        return set()
+    section = data.get("mcp")
+    if not isinstance(section, dict):
+        return set()
+    if isinstance(section.get("servers"), dict):
+        return {str(name) for name in section["servers"]}
+    return {str(key) for key, value in section.items() if isinstance(value, dict)}
+
+
 def mcp_names(path: Path, format_name: str) -> List[str]:
     if not path.is_file():
         return []
@@ -70,7 +87,7 @@ def mcp_names(path: Path, format_name: str) -> List[str]:
         pattern = r"^\s*\[mcp_servers\.([^\].]+)\]"
         return sorted(set(re.findall(pattern, text, re.MULTILINE)))
     data = json.loads(_strip_json_comments(text))
-    return sorted(_collect_named_tables(data, "mcpServers"))
+    return sorted(_collect_named_tables(data, "mcpServers") or _nested_mcp_block(data))
 
 
 def _skill_records(
@@ -78,6 +95,7 @@ def _skill_records(
     local: Dict[str, Path],
     compare_contents: bool = True,
     trust_links: bool = False,
+    digests: Optional[Dict[str, str]] = None,
 ) -> List[SkillRecord]:
     records = []
     remaining = dict(local)
@@ -93,7 +111,7 @@ def _skill_records(
             if points_to_source or not compare_contents or (trust_links and target_is_link):
                 status = "ready"
             else:
-                status = "ready" if equivalent(source, target) else "different"
+                status = "ready" if equivalent(source, target, digests) else "different"
             records.append(SkillRecord(name, target, status, target_is_link))
     for name, target in remaining.items():
         records.append(SkillRecord(name, target, "unmanaged", is_link(target)))
@@ -107,6 +125,7 @@ def scan(
     trust_links: bool = False,
 ) -> List[AgentInventory]:
     canonical = child_directories(central)
+    digests = {}  # type: Dict[str, str]
     inventories = []
     for profile in profiles:
         errors = []
@@ -124,6 +143,7 @@ def scan(
                     child_directories(profile.skills_path),
                     compare_contents,
                     trust_links,
+                    digests,
                 ),
                 mcps=servers,
                 errors=errors,

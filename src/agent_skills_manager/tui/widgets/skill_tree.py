@@ -85,7 +85,18 @@ class SkillTree(Tree[SkillNodeData]):
         self.move_cursor(node)
         self.scroll_to_node(node)
 
-    def load_entries(self, entries: Sequence[SkillEntry], empty_message: str) -> None:
+    def load_entries(
+        self,
+        entries: Sequence[SkillEntry],
+        empty_message: str,
+        pinned_names: Sequence[str] = (),
+        pinned_label: str = "",
+    ) -> None:
+        """Fill the tree, optionally pulling ``pinned_names`` into a leading group.
+
+        Pinning keeps a category together that prefix grouping would otherwise
+        scatter, such as the Skills only this agent has.
+        """
         previous = self.selected_skill
         self._entries = {entry.name: entry for entry in entries if not entry.name.startswith(".")}
         self._checked.intersection_update(self._entries)
@@ -98,8 +109,14 @@ class SkillTree(Tree[SkillNodeData]):
             self.move_cursor(self.root)
             return
 
+        pinned = tuple(name for name in pinned_names if name in self._entries)
+        remaining = {name: entry for name, entry in self._entries.items() if name not in pinned}
+        groups = list(group_skill_names(remaining))
+        if pinned:
+            groups.insert(0, SkillGroup("pinned", pinned_label, pinned))
+
         first_visible = None
-        for group in group_skill_names(self._entries):
+        for group in groups:
             expanded = len(group.names) <= 8
             data = SkillNodeData(group.names, is_group=True)
             group_node = self.root.add(self._group_label(group), data=data, expand=expanded)

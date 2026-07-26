@@ -4,16 +4,20 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast
 
+from rich.text import Text
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
 from textual.widgets import DataTable, Footer, Static
 
-from agent_skills_manager.domain.models import AgentInventory, InventorySnapshot, ItemStatus
+from agent_skills_manager.domain.models import AgentInventory, InventorySnapshot
 
 if TYPE_CHECKING:
     from agent_skills_manager.tui.app import AgentSkillsApp
+
+# Matches the disabled-control colour in theme.tcss.
+ABSENT_STYLE = "#69635c"
 
 
 class DashboardScreen(Screen[None]):
@@ -61,25 +65,29 @@ class DashboardScreen(Screen[None]):
         table = self.query_one("#agents", DataTable)
         table.clear()
         self._agent_ids = []
-        for agent in snapshot.agents:
+        for agent in self._ordered(snapshot.agents):
             self._agent_ids.append(agent.definition.id)
-            present = sum(entry.status is not ItemStatus.MISSING for entry in agent.skills)
-            missing = sum(entry.status is ItemStatus.MISSING for entry in agent.skills)
-            table.add_row(
+            cells = [
                 agent.definition.display_name,
                 agent.preference.skills_mode.value,
-                str(present),
-                str(missing),
+                str(agent.present_skills),
+                str(agent.missing_skills),
                 str(len(agent.mcps)),
                 self._status(agent),
-                key=agent.definition.id,
-            )
+            ]
+            if not agent.installed:
+                cells = [Text(cell, style=ABSENT_STYLE) for cell in cells]
+            table.add_row(*cells, key=agent.definition.id)
         if previous in self._agent_ids:
             table.move_cursor(row=self._agent_ids.index(previous))
         self.query_one("#central-path", Static).update(str(snapshot.central_skills_path))
-        attention = sum(agent.needs_attention for agent in snapshot.agents)
+        # A host that was never installed reports every central Skill as missing, so
+        # counting it as "needs attention" would bury the hosts that really do.
+        installed = [agent for agent in snapshot.agents if agent.installed]
+        attention = sum(agent.needs_attention for agent in installed)
         self.query_one("#summary", Static).update(
-            f"{len(snapshot.agents)} 个 Agent  ·  {attention} 个需要处理"
+            f"{len(snapshot.agents)} 个 Agent  ·  {len(installed)} 个已安装"
+            f"  ·  {attention} 个需要处理"
         )
         table.focus()
 
@@ -94,6 +102,15 @@ class DashboardScreen(Screen[None]):
         if not self.snapshot or not self.selected_agent_id:
             return None
         return self.snapshot.agent(self.selected_agent_id)
+
+    @staticmethod
+    def _ordered(agents: list[AgentInventory]) -> list[AgentInventory]:
+        """Show the hosts on this machine first, keeping registry order inside a group.
+
+        Most defined hosts are absent on any one machine, so listing them in registry
+        order would bury the few that matter behind a wall of "not found" rows.
+        """
+        return sorted(agents, key=lambda agent: not agent.installed)
 
     def _status(self, agent: AgentInventory) -> str:
         if not agent.installed:

@@ -17,12 +17,22 @@ class McpReader:
             data = tomllib.loads(text) if format_name == "toml" else json.loads(self._jsonc(text))
         except (OSError, ValueError, tomllib.TOMLDecodeError):
             return []
-        servers = (
-            data.get("mcpServers")
-            or data.get("mcp_servers")
-            or data.get("mcp", {}).get("servers", {})
-        )
+        servers = data.get("mcpServers") or data.get("mcp_servers") or self._nested(data.get("mcp"))
         return sorted(servers) if isinstance(servers, dict) else []
+
+    @staticmethod
+    def _nested(section: object) -> dict:
+        """Read the ``mcp`` block used by opencode-style configuration files.
+
+        Some hosts nest servers under ``mcp.servers``; opencode and its forks put the
+        servers directly under ``mcp``, alongside scalar options such as ``allowed``.
+        Only mapping values can be a server definition, so scalars are ignored.
+        """
+        if not isinstance(section, dict):
+            return {}
+        if isinstance(section.get("servers"), dict):
+            return section["servers"]
+        return {key: value for key, value in section.items() if isinstance(value, dict)}
 
     @staticmethod
     def _jsonc(text: str) -> str:
