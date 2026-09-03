@@ -11,7 +11,8 @@ from agent_skills_manager.domain.models import AgentPreference, SyncMode
 
 APP_NAME = "agent-skills-manager"
 CONFIG_NAME = "settings.yaml"
-DEFAULT_CENTRAL_SKILLS_PATH = "~/.agent/skills"
+DEFAULT_CENTRAL_SKILLS_PATH = "~/.agentskillsbank/skills"
+LEGACY_CENTRAL_SKILLS_PATH = "~/.agent/skills"
 
 
 def expand_path(value: str | Path) -> Path:
@@ -24,11 +25,18 @@ def expand_path(value: str | Path) -> Path:
     return Path(raw).expanduser()
 
 
+def default_central_skills_path() -> Path:
+    """Prefer the renamed central store; keep reading a legacy store that still exists."""
+    default = expand_path(DEFAULT_CENTRAL_SKILLS_PATH)
+    if default.exists():
+        return default
+    legacy = expand_path(LEGACY_CENTRAL_SKILLS_PATH)
+    return legacy if legacy.exists() else default
+
+
 @dataclass(slots=True)
 class Settings:
-    central_skills_path: Path = field(
-        default_factory=lambda: expand_path(DEFAULT_CENTRAL_SKILLS_PATH)
-    )
+    central_skills_path: Path = field(default_factory=default_central_skills_path)
     agents: dict[str, AgentPreference] = field(default_factory=dict)
     path: Path | None = None
 
@@ -51,9 +59,10 @@ class Settings:
             for agent_id, value in raw_agents.items()
             if isinstance(value, dict)
         }
+        raw_central = data.get("central_skills_path")
         return cls(
-            central_skills_path=expand_path(
-                data.get("central_skills_path", DEFAULT_CENTRAL_SKILLS_PATH)
+            central_skills_path=(
+                expand_path(raw_central) if raw_central else default_central_skills_path()
             ),
             agents=agents,
             path=config_path,

@@ -8,6 +8,16 @@ def test_default_central_skills_path(tmp_path, monkeypatch):
 
     settings = Settings.load(tmp_path / "missing-settings.yaml")
 
+    assert settings.central_skills_path == tmp_path / ".agentskillsbank" / "skills"
+
+
+def test_default_central_falls_back_to_legacy_store(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    (tmp_path / ".agent" / "skills").mkdir(parents=True)
+
+    settings = Settings.load(tmp_path / "missing-settings.yaml")
+
     assert settings.central_skills_path == tmp_path / ".agent" / "skills"
 
 

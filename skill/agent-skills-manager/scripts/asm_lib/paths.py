@@ -7,7 +7,8 @@ from typing import List, Optional
 from .models import AgentProfile
 
 
-DEFAULT_CENTRAL = "~/.agent/skills"
+DEFAULT_CENTRAL = "~/.agentskillsbank/skills"
+LEGACY_CENTRAL = "~/.agent/skills"
 
 
 def expand_path(value: str) -> Path:
@@ -20,7 +21,13 @@ def expand_path(value: str) -> Path:
 
 
 def central_path(value: Optional[str] = None) -> Path:
-    return expand_path(value or DEFAULT_CENTRAL)
+    if value:
+        return expand_path(value)
+    default = expand_path(DEFAULT_CENTRAL)
+    if default.exists():
+        return default
+    legacy = expand_path(LEGACY_CENTRAL)
+    return legacy if legacy.exists() else default
 
 
 def path_candidates(paths: dict, system: Optional[str] = None) -> List[str]:

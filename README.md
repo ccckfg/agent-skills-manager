@@ -53,7 +53,7 @@ flowchart LR
 中央仓库默认位于你的用户目录：
 
 ```text
-~/.agent/skills/
+~/.agentskillsbank/skills/
 ├── my-code-review-skill/
 │   └── SKILL.md
 ├── frontend-design/
@@ -63,6 +63,8 @@ flowchart LR
 ```
 
 你只维护这里的 Skills，管理器负责把它们送到各个 Agent。
+
+> 从 v0.4.0 起，中央仓库默认目录改为 `~/.agentskillsbank/skills`，避免与其他工具常用的 `~/.agent` 目录冲突。如果你的机器上只有旧目录 `~/.agent/skills`，管理器会继续读取它；要迁移，把整个 `.agent` 目录改名为 `.agentskillsbank` 即可。
 
 ## 功能亮点
 
@@ -212,7 +214,7 @@ TUI 用的是快速扫描，不逐字节比较内容，所以"版本不同"不�
 这一组不能用 `A` 添加 —— 中央仓库还没有这份 Skill，没有可复制的来源。所以当你的选择全部来自这一组时，右下角的按钮会自动变成「导入中央仓库」。
 
 > [!IMPORTANT]
-> 添加和移除都会先显示确认框。移除不是永久删除：原目录会移动到 `~/.agent/backups/<agent-id>/`。Antigravity 不支持软链接，按 `M` 不会切换到 Link。
+> 添加和移除都会先显示确认框。移除不是永久删除：原目录会移动到 `~/.agentskillsbank/backups/<agent-id>/`。Antigravity 不支持软链接，按 `M` 不会切换到 Link。
 
 ## Copy 和 Link 应该选哪个？
 
@@ -252,7 +254,7 @@ Agent 目录里放的是指向中央 Skill 的软链接。
 2. Agent 独有且尚未纳管的 Skill 不会在普通同步中被删除；
 3. 需要替换不同版本时，旧目录先改名备份。
 
-便携脚本会把备份集中放在 `~/.agent/backups/<agent>/`。备份名称类似：
+便携脚本会把备份集中放在 `~/.agentskillsbank/backups/<agent>/`。备份名称类似：
 
 ```text
 my-skill.agent-skills-manager-backup-20260721123456789000
@@ -267,7 +269,7 @@ my-skill.agent-skills-manager-backup-20260721123456789000
 内容类似：
 
 ```yaml
-central_skills_path: C:\Users\you\.agent\skills
+central_skills_path: C:\Users\you\.agentskillsbank\skills
 agents:
   antigravity:
     enabled: true
@@ -404,7 +406,7 @@ uv build
 - MCP 在应用中只读；
 - 不自动写入 API Key、令牌或其他秘密；
 - 不删除 Agent 独有的未纳管 Skill；
-- 替换已有 Skill 前在 `~/.agent/backups/<agent>/` 创建集中备份；
+- 替换已有 Skill 前在 `~/.agentskillsbank/backups/<agent>/` 创建集中备份；
 - 内嵌脚本的 `import` 和 `sync` 默认只展示计划；
 - 内嵌脚本只有显式传入 `--apply` 才写文件；
 - 可选 CLI 默认需要终端确认；TUI 的单项添加和移除也必须经过确认框。

@@ -18,7 +18,7 @@ The script uses only the Python standard library. Run it from any working direct
 
 ## Inspect first
 
-Run `status --json` before planning any change. Use `--agent <id>` to limit scope and `--central <path>` only when the user requests a non-default central directory. The default is `~/.agent/skills`.
+Run `status --json` before planning any change. Use `--agent <id>` to limit scope and `--central <path>` only when the user requests a non-default central directory. The default is `~/.agentskillsbank/skills`; a legacy `~/.agent/skills` that still exists is read instead when the new path does not.
 
 `status` reports presence and link health and returns `"verified": false`. It does not
 prove that two directories hold the same bytes, so a Skill installed at a different
@@ -39,7 +39,7 @@ agent IDs.
 4. Re-run the identical command with `--apply` added.
 5. Run `status --json` again and verify the intended state.
 
-Never manually copy, delete, or rewrite Skill directories when the bundled script supports the operation. Never pass `--apply` speculatively. The script preserves replaced directories under `~/.agent/backups/<agent>/` and does not delete unmanaged Skills.
+Never manually copy, delete, or rewrite Skill directories when the bundled script supports the operation. Never pass `--apply` speculatively. The script preserves replaced directories under the central store's sibling `backups` directory (`~/.agentskillsbank/backups/<agent>/` by default) and does not delete unmanaged Skills.
 
 Use Copy when uncertain. Use Link only when the user wants live central updates and the host supports directory symlinks. Antigravity always falls back to Copy.
 

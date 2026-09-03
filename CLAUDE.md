@@ -12,7 +12,7 @@ uv run ruff check .
 uv run ruff format --check .
 uv build
 
-uv run agent-skills-manager init      # write settings.yaml + create ~/.agent/skills
+uv run agent-skills-manager init      # write settings.yaml + create ~/.agentskillsbank/skills
 uv run agent-skills-manager status --json
 uv run agent-skills-manager sync --agent codex --dry-run
 uv run agent-skills-manager           # no subcommand => TUI
@@ -71,14 +71,14 @@ These are load-bearing and covered by tests. Preserve them in both implementatio
 - Sync sources must resolve under the central skills directory; `execute()` raises otherwise.
 - A destination's basename must equal the skill name (no path traversal via a skill name).
 - Refuse to overwrite anything not marked `replace` — that is what protects agent-only unmanaged Skills.
-- Replacing an existing Skill first moves the old directory to `~/.agent/backups/<agent-id>/<name>-<utc-timestamp>`; if the copy or link then fails, the backup is restored.
+- Replacing an existing Skill first moves the old directory to `~/.agentskillsbank/backups/<agent-id>/<name>-<utc-timestamp>`; if the copy or link then fails, the backup is restored.
 - Removal is a move into that same backup area, never a delete.
 - Import never overwrites an existing central Skill; a name collision becomes a warning and is skipped.
 - A directory counts as a Skill only if it contains `SKILL.md` (or is a link). Dot-directories and `.agent-skills-manager-backup-*` are invisible to every scan.
 
 ## Platform notes
 
-Link mode on Windows creates a directory **junction** via `mklink /J` (`COMSPEC`), not a symlink, so it works without developer mode; `SkillStore.is_link` therefore checks symlink, `is_junction`, and the reparse-point attribute. `expand_path` resolves `~` through `HOME`/`USERPROFILE` explicitly — tests set both to `tmp_path` to sandbox scans, so never bypass it with bare `Path.expanduser()`. Antigravity is `supports_link: false`; link plans silently downgrade to copy with a warning.
+Link mode on Windows creates a directory **junction** via `mklink /J` (`COMSPEC`), not a symlink, so it works without developer mode; `SkillStore.is_link` therefore checks symlink, `is_junction`, and the reparse-point attribute. `expand_path` resolves `~` through `HOME`/`USERPROFILE` explicitly — tests set both to `tmp_path` to sandbox scans, so never bypass it with bare `Path.expanduser()`. Antigravity is `supports_link: false`; link plans silently downgrade to copy with a warning. The default central store is `~/.agentskillsbank/skills`; `asm_lib.paths.central_path` and `config.settings.default_central_skills_path` fall back to a legacy `~/.agent/skills` that still exists when the new path does not, and the two implementations must keep agreeing on that choice.
 
 ## Conventions
 

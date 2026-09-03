@@ -41,6 +41,14 @@ def test_portable_status_reads_skills_and_mcp(tmp_path):
     assert payload["agents"][0]["skills"][0]["status"] == "missing"
 
 
+def test_portable_status_prefers_the_new_default_central(tmp_path):
+    make_skill(tmp_path / ".agentskillsbank" / "skills" / "demo")
+
+    payload = run_script(tmp_path, "status", "--agent", "codex", "--json")
+
+    assert payload["central"] == str(tmp_path / ".agentskillsbank" / "skills")
+
+
 def test_portable_sync_plans_then_applies_copy(tmp_path):
     make_skill(tmp_path / ".agent" / "skills" / "demo", "central")
     destination = tmp_path / ".codex" / "skills" / "demo"
@@ -92,7 +100,7 @@ def test_portable_sync_plans_copy_to_link_mode_conversion(tmp_path):
 
 def test_portable_import_plans_then_applies(tmp_path):
     make_skill(tmp_path / ".cursor" / "skills" / "local-only")
-    destination = tmp_path / ".agent" / "skills" / "local-only"
+    destination = tmp_path / ".agentskillsbank" / "skills" / "local-only"
 
     plan = run_script(tmp_path, "import", "--agent", "cursor", "--json")
     assert plan["actions"][0]["skill"] == "local-only"

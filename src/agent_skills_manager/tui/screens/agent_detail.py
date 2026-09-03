@@ -314,7 +314,7 @@ class AgentDetailScreen(Screen[None]):
                 f"移除 {len(names)} 个 Skills",
                 f"从 {self.agent.definition.display_name} 移除 "
                 f"{self._selection_preview(names)}。"
-                "文件会移入 ~/.agent/backups，可随时恢复。",
+                "文件会移入中央仓库的 backups 目录，可随时恢复。",
                 f"确认移除 {len(names)} 个",
                 destructive=True,
             ),
