@@ -88,9 +88,9 @@ Repeat `--agent` to select multiple hosts. Omit it to select all defined hosts. 
 ## Agent IDs
 
 `claude-code`, `codex`, `cursor`, `antigravity`, `gemini-cli`, `copilot-cli`,
-`windsurf`, `opencode`, `kiro`, `pi`, `qoder`, `qoder-cn`, `trae`, `trae-cn`,
-`codebuddy`, `kimi-code`, `iflow`, `qwen-code`, `lingma`, `mimo-code`,
-`agents-shared`.
+`windsurf`, `opencode`, `kiro`, `pi`, `droid`, `qoder`, `qoder-cn`, `trae`,
+`trae-cn`, `codebuddy`, `kimi-code`, `iflow`, `qwen-code`, `lingma`,
+`mimo-code`, `agents-shared`.
 
 `--agent` rejects an unknown ID, so read the error rather than guessing a name.
 See `references/agents.md` for each host's directories and quirks.

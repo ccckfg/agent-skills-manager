@@ -16,7 +16,7 @@ from asm_lib.operations import apply_import, apply_sync, plan_import, plan_sync 
 from asm_lib.paths import central_path, load_profiles  # noqa: E402
 
 
-VERSION = "0.3.0"
+VERSION = "0.3.1"
 TUI_INSTALL = "uv tool install git+https://github.com/ccckfg/agent-skills-manager.git"
 
 

@@ -121,6 +121,17 @@
       "mcp_format": "jsonc"
     },
     {
+      "id": "droid",
+      "display_name": "Droid",
+      "skills_paths": {
+        "default": "~/.factory/skills"
+      },
+      "mcp_paths": {
+        "default": "~/.factory/mcp.json"
+      },
+      "mcp_format": "jsonc"
+    },
+    {
       "id": "qoder",
       "display_name": "Qoder",
       "skills_paths": {

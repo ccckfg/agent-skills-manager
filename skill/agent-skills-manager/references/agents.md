@@ -21,6 +21,7 @@ if the script printed a different one.
 | `opencode` | opencode | `~/.config/opencode/skills` | `~/.config/opencode/opencode.jsonc`, then `.json` | JSONC |
 | `kiro` | Kiro | `~/.kiro/skills` | `~/.kiro/settings/mcp.json` | JSONC |
 | `pi` | Pi | `~/.pi/agent/skills` | `~/.pi/agent/mcp.json`, then `~/.config/mcp/mcp.json` | JSONC |
+| `droid` | Droid (Factory) | `~/.factory/skills` | `~/.factory/mcp.json` | JSONC |
 | `qoder` | Qoder | `~/.qoder/skills` | `~/.qoder/mcp.json` | JSONC |
 | `qoder-cn` | Qoder CN | `~/.qoder-cn/skills` | `~/.qoder-cn/mcp.json` | JSONC |
 | `trae` | Trae | `~/.trae/skills` | `~/.trae/mcp.json` | JSONC |
@@ -60,6 +61,11 @@ accepts Copy or Link. Prefer Copy unless the user asks for live central updates.
   credentials, and model selection.
 - **`opencode`** and **`mimo-code`** nest servers directly under a top-level `mcp` key
   instead of `mcpServers`. Scalar options inside that block are not servers.
+- **`droid`** is Factory's CLI. Both directories live under `~/.factory` on every
+  platform, and `~/.factory/mcp.json` uses the `mcpServers` shape. The host reads it
+  as strict JSON, so never leave a comment behind in that file. Droid also ships
+  built-in Skills of its own; those are not on disk here and never appear as
+  unmanaged.
 - **`qoder-cn`** and **`trae-cn`** are the mainland China builds and keep separate
   directories from the international builds. Both can be installed at once.
 

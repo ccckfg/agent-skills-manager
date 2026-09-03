@@ -1,6 +1,6 @@
 # Agent Skills Manager
 
-> 只复制一个自带脚本的 Skill，就能让 Agent 管理散落在 Claude Code、Codex、Cursor、Antigravity、Qoder、Trae、CodeBuddy、Kimi Code 等 21 个国内外 Agent 里的 Skills；需要时再安装漂亮的 TUI 随时查看。
+> 只复制一个自带脚本的 Skill，就能让 Agent 管理散落在 Claude Code、Codex、Cursor、Antigravity、Droid、Qoder、Trae、CodeBuddy、Kimi Code 等 22 个国内外 Agent 里的 Skills；需要时再安装漂亮的 TUI 随时查看。
 
 [![Python 3.9+](https://img.shields.io/badge/portable%20script-Python%203.9%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![uv](https://img.shields.io/badge/managed%20by-uv-DE5FE9)](https://docs.astral.sh/uv/)
@@ -67,7 +67,7 @@ flowchart LR
 ## 功能亮点
 
 - 🧰 **中央 Skills 仓库**：一处维护，多处使用。
-- 🌏 **覆盖 21 个 Agent**：国内外常见 CLI 与 IDE 都在支持范围内。
+- 🌏 **覆盖 22 个 Agent**：国内外常见 CLI 与 IDE 都在支持范围内。
 - 📦 **Skill 自带脚本**：复制目录即可使用，不依赖本项目安装或第三方 Python 包。
 - 🖥️ **可选现代 TUI**：不用记住所有目录，一眼查看四个 Agent。
 - 🔗 **两种同步方式**：每个 Agent 可选择软链接或复制。
@@ -79,7 +79,7 @@ flowchart LR
 
 ## 支持范围
 
-目前覆盖 21 个国内外常见 Agent。除 Antigravity 外都支持复制与软链接两种方式。
+目前覆盖 22 个国内外常见 Agent。除 Antigravity 外都支持复制与软链接两种方式。
 
 | Agent | 默认 Skills 目录 | 默认 MCP 配置 |
 |---|---|---|
@@ -93,6 +93,7 @@ flowchart LR
 | opencode | `~/.config/opencode/skills` | `~/.config/opencode/opencode.jsonc` |
 | Kiro | `~/.kiro/skills` | `~/.kiro/settings/mcp.json` |
 | Pi | `~/.pi/agent/skills` | `~/.pi/agent/mcp.json` |
+| Droid（Factory） | `~/.factory/skills` | `~/.factory/mcp.json` |
 | Qoder | `~/.qoder/skills` | `~/.qoder/mcp.json` |
 | Qoder CN | `~/.qoder-cn/skills` | `~/.qoder-cn/mcp.json` |
 | Trae | `~/.trae/skills` | `~/.trae/mcp.json` |

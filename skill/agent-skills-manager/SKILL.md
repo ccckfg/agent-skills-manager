@@ -1,6 +1,6 @@
 ---
 name: agent-skills-manager
-description: "Manage local AI Agent Skills with the dependency-free scripts bundled inside this Skill. Use when inspecting, comparing, importing, or synchronizing Skills across Claude Code, Codex, Cursor, Antigravity, Gemini CLI, GitHub Copilot CLI, Windsurf, opencode, Kiro, Pi, Qoder, Trae, CodeBuddy, Kimi Code, iFlow, Qwen Code, Lingma, MiMo Code or the shared ~/.agents directory; listing their MCP servers; or safely reviewing MCP and other agent configuration. The bundled script works without installing the optional TUI."
+description: "Manage local AI Agent Skills with the dependency-free scripts bundled inside this Skill. Use when inspecting, comparing, importing, or synchronizing Skills across Claude Code, Codex, Cursor, Antigravity, Gemini CLI, GitHub Copilot CLI, Windsurf, opencode, Kiro, Pi, Droid, Qoder, Trae, CodeBuddy, Kimi Code, iFlow, Qwen Code, Lingma, MiMo Code or the shared ~/.agents directory; listing their MCP servers; or safely reviewing MCP and other agent configuration. The bundled script works without installing the optional TUI."
 ---
 
 # Agent Skills Manager

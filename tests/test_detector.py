@@ -24,6 +24,7 @@ EXPECTED_AGENTS = {
     "opencode",
     "kiro",
     "pi",
+    "droid",
     "qoder",
     "qoder-cn",
     "trae",
@@ -71,6 +72,16 @@ def test_detector_expands_default_paths(monkeypatch, tmp_path):
     skills, mcp = AgentDetector(AgentRegistry([definition])).paths_for(definition)
     assert skills == tmp_path / ".codex" / "skills"
     assert mcp.name == "config.toml"
+
+
+def test_droid_reads_the_factory_directory(monkeypatch, tmp_path):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    definition = AgentRegistry.load_default().get("droid")
+
+    skills, mcp = AgentDetector(AgentRegistry([definition])).paths_for(definition)
+
+    assert skills == tmp_path / ".factory" / "skills"
+    assert mcp == tmp_path / ".factory" / "mcp.json"
 
 
 def test_antigravity_uses_gemini_config_skills(monkeypatch, tmp_path):
