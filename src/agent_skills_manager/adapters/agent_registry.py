@@ -5,7 +5,7 @@ from pathlib import Path
 
 import yaml
 
-from agent_skills_manager.domain.models import AgentDefinition
+from agent_skills_manager.domain.models import AgentDefinition, PromptStyle
 
 
 class AgentRegistry:
@@ -26,6 +26,8 @@ class AgentRegistry:
                     mcp_paths=item.get("mcp_paths", {}),
                     mcp_format=item.get("mcp_format", "json"),
                     supports_link=bool(item.get("supports_link", True)),
+                    prompts_paths=item.get("prompts_paths", {}),
+                    prompt_style=PromptStyle(item.get("prompt_style", "plain")),
                 )
             )
         return cls(definitions)
@@ -49,7 +51,12 @@ class AgentRegistry:
         that exists on this machine and falls back to the preferred one.
         """
         key = (system or platform.system()).lower()
-        paths = definition.skills_paths if kind == "skills" else definition.mcp_paths
+        paths_by_kind = {
+            "skills": definition.skills_paths,
+            "mcp": definition.mcp_paths,
+            "prompts": definition.prompts_paths,
+        }
+        paths = paths_by_kind.get(kind, definition.skills_paths)
         value = paths.get(key, paths.get("default", ""))
         if isinstance(value, str):
             return [value] if value else []

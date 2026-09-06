@@ -24,6 +24,7 @@ class DashboardScreen(Screen[None]):
     BINDINGS = [
         Binding("enter", "details", "打开"),
         Binding("m", "toggle_mode", "切换模式"),
+        Binding("p", "prompts", "系统提示词"),
         Binding("r", "refresh", "刷新"),
         Binding("o", "open_folder", "打开目录"),
         Binding("q", "quit", "退出"),
@@ -129,6 +130,9 @@ class DashboardScreen(Screen[None]):
     def action_toggle_mode(self) -> None:
         if self.selected_agent_id:
             self.manager.toggle_mode(self.selected_agent_id)
+
+    def action_prompts(self) -> None:
+        self.manager.open_prompts()
 
     def action_refresh(self) -> None:
         self.query_one("#summary", Static).update("正在刷新…")

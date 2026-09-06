@@ -59,6 +59,8 @@ def test_portable_profiles_match_the_installed_registry():
                 item["mcp_paths"],
                 item["mcp_format"],
                 item.get("supports_link", True),
+                item.get("prompts_paths", {}),
+                item.get("prompt_style", "plain"),
             )
             for item in items
         }

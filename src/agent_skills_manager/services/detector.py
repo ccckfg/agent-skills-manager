@@ -14,6 +14,10 @@ class AgentDetector:
     def paths_for(self, definition: AgentDefinition) -> tuple[Path, Path]:
         return (self._resolve(definition, "skills"), self._resolve(definition, "mcp"))
 
+    def prompt_path(self, definition: AgentDefinition) -> Path:
+        """Resolve the host's user-level instruction file, if it defines one."""
+        return self._resolve(definition, "prompts")
+
     def _resolve(self, definition: AgentDefinition, kind: str) -> Path:
         """Prefer the location this machine actually uses, else the documented default."""
         candidates = [

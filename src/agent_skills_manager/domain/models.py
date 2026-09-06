@@ -10,6 +10,13 @@ class SyncMode(StrEnum):
     COPY = "copy"
 
 
+class PromptStyle(StrEnum):
+    """How canonical prompt content is rendered for one host."""
+
+    PLAIN = "plain"
+    CURSOR = "cursor"
+
+
 class ItemStatus(StrEnum):
     READY = "ready"
     MISSING = "missing"
@@ -27,6 +34,8 @@ class AgentDefinition:
     mcp_paths: dict[str, str | list[str]]
     mcp_format: str
     supports_link: bool = True
+    prompts_paths: dict[str, str | list[str]] = field(default_factory=dict)
+    prompt_style: PromptStyle = PromptStyle.PLAIN
 
 
 @dataclass(slots=True)
@@ -111,3 +120,45 @@ class SyncPlan:
     @property
     def has_changes(self) -> bool:
         return bool(self.actions)
+
+
+@dataclass(frozen=True, slots=True)
+class PromptTarget:
+    """One host's user-level instruction file, compared against the canonical prompt."""
+
+    agent_id: str
+    display_name: str
+    path: Path
+    style: PromptStyle = PromptStyle.PLAIN
+    present: bool = False
+    matches: bool | None = None
+
+    @property
+    def needs_attention(self) -> bool:
+        return self.present and self.matches is False
+
+
+@dataclass(frozen=True, slots=True)
+class PromptAction:
+    agent_id: str
+    destination: Path
+    source: Path
+    style: PromptStyle
+    replace: bool = False
+
+
+@dataclass(slots=True)
+class PromptPlan:
+    actions: list[PromptAction] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+
+    @property
+    def has_changes(self) -> bool:
+        return bool(self.actions)
+
+
+@dataclass(slots=True)
+class PromptInventory:
+    source: Path
+    source_present: bool
+    targets: list[PromptTarget] = field(default_factory=list)

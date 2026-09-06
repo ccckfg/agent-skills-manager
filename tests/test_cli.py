@@ -70,11 +70,14 @@ def _tui_handlers(monkeypatch, tmp_path: Path) -> dict:
     """
     agent_skills = tmp_path / "codex" / "skills"
     agent_skills.mkdir(parents=True, exist_ok=True)
+    prompt_file = tmp_path / "codex" / "AGENTS.md"
     registry_file = tmp_path / "agents.yaml"
     registry_file.write_text(
         "agents:\n- id: codex\n  display_name: Codex\n  skills_paths: {default: '"
         + str(agent_skills).replace("\\", "/")
-        + "'}\n  mcp_paths: {default: 'x'}\n  mcp_format: json",
+        + "'}\n  mcp_paths: {default: 'x'}\n  mcp_format: json\n  prompts_paths: {default: '"
+        + str(prompt_file).replace("\\", "/")
+        + "'}",
         encoding="utf-8",
     )
     load_default = cli.AgentRegistry.load_default
@@ -87,7 +90,19 @@ def _tui_handlers(monkeypatch, tmp_path: Path) -> dict:
     captured: dict = {}
 
     def fake_run_tui(*args) -> None:
-        names = ("snapshot", "sync", "set_mode", "add", "remove", "import")
+        names = (
+            "snapshot",
+            "sync",
+            "set_mode",
+            "add",
+            "remove",
+            "import",
+            "prompts_loader",
+            "prompts_plan",
+            "capture",
+            "prompts_sync",
+            "prompts_reader",
+        )
         captured.update(dict(zip(names, args)))
 
     monkeypatch.setattr("agent_skills_manager.tui.run_tui", fake_run_tui)
@@ -119,6 +134,30 @@ def test_tui_import_handler_refuses_a_skill_the_central_store_already_has(
 
     with pytest.raises(ValueError, match="无法导入"):
         handlers["import"](handlers["snapshot"]().agents[0], ("shared",))
+
+
+def test_tui_prompts_handlers_seed_and_sync(monkeypatch, tmp_path: Path) -> None:
+    handlers = _tui_handlers(monkeypatch, tmp_path)
+
+    # Without a canonical file the plan is warnings only.
+    empty = handlers["prompts_plan"](None)
+    assert empty.actions == [] and empty.warnings
+
+    origin = tmp_path / "codex" / "AGENTS.md"
+    origin.parent.mkdir(parents=True, exist_ok=True)
+    origin.write_text("Rule one", encoding="utf-8")
+    handlers["capture"]("codex")
+
+    canonical = tmp_path / "prompts" / "user.md"
+    assert canonical.read_text(encoding="utf-8") == "Rule one\n"
+    assert handlers["prompts_reader"](canonical) == "Rule one\n"
+
+    # Later the host drifts from the canonical content; sync restores it.
+    origin.write_text("Drifted", encoding="utf-8")
+    plan = handlers["prompts_plan"](None)
+    assert plan.has_changes
+    handlers["prompts_sync"](plan)
+    assert origin.read_text(encoding="utf-8") == "Rule one\n"
 
 
 def test_uninstalled_agent_is_not_reported_as_needing_attention(

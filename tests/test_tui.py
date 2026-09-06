@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 from rich.text import Text
-from textual.widgets import Button, DataTable
+from textual.widgets import Button, DataTable, TextArea
 
 from agent_skills_manager.domain.models import (
     AgentDefinition,
@@ -14,11 +14,21 @@ from agent_skills_manager.domain.models import (
     InventorySnapshot,
     ItemStatus,
     McpEntry,
+    PromptAction,
+    PromptInventory,
+    PromptPlan,
+    PromptStyle,
+    PromptTarget,
     SkillEntry,
     SyncMode,
 )
 from agent_skills_manager.tui import AgentSkillsApp
-from agent_skills_manager.tui.screens import AgentDetailScreen, DashboardScreen
+from agent_skills_manager.tui.screens import (
+    AgentDetailScreen,
+    DashboardScreen,
+    PromptViewScreen,
+    PromptsScreen,
+)
 from agent_skills_manager.tui.screens.confirm import ConfirmScreen
 from agent_skills_manager.tui.widgets import SkillTree
 
@@ -392,3 +402,275 @@ async def test_mode_switch_and_antigravity_copy_only() -> None:
         await pilot.press("down", "m")
         assert app.snapshot is not None
         assert app.snapshot.agents[1].preference.skills_mode is SyncMode.COPY
+
+
+def prompts_inventory(source_present: bool = True, matches: bool = False) -> PromptInventory:
+    targets = [
+        PromptTarget(
+            agent_id="codex",
+            display_name="Codex",
+            path=Path("/tmp/codex/AGENTS.md"),
+            style=PromptStyle.PLAIN,
+            present=True,
+            matches=matches if source_present else None,
+        ),
+        PromptTarget(
+            agent_id="cursor",
+            display_name="Cursor",
+            path=Path("/tmp/cursor/rules/global.mdc"),
+            style=PromptStyle.CURSOR,
+            present=False,
+            matches=False if source_present else None,
+        ),
+    ]
+    return PromptInventory(
+        source=Path("/tmp/agent/prompts/user.md"),
+        source_present=source_present,
+        targets=targets,
+    )
+
+
+def one_action_plan() -> PromptPlan:
+    return PromptPlan(
+        actions=[
+            PromptAction(
+                agent_id="codex",
+                destination=Path("/tmp/codex/AGENTS.md"),
+                source=Path("/tmp/agent/prompts/user.md"),
+                style=PromptStyle.PLAIN,
+                replace=True,
+            )
+        ]
+    )
+
+
+def fake_prompts_reader(path: Path) -> str:
+    if path == Path("/tmp/codex/AGENTS.md"):
+        return "Rule one\nRule two\n"
+    if path == Path("/tmp/agent/prompts/user.md"):
+        return "Canonical rule\n"
+    return ""
+
+
+@pytest.mark.asyncio
+async def test_prompts_screen_lists_targets_and_returns_to_the_dashboard() -> None:
+    app = AgentSkillsApp(snapshot, prompts_loader=prompts_inventory)
+    async with app.run_test(size=(120, 32)) as pilot:
+        await wait_for_inventory(app, pilot)
+        assert isinstance(app.screen, DashboardScreen)
+
+        await pilot.press("p")
+        await wait_for_inventory(app, pilot)
+        assert isinstance(app.screen, PromptsScreen)
+
+        table = app.screen.query_one("#prompts", DataTable)
+        assert table.row_count == 2
+        assert app.screen._agent_ids == ["codex", "cursor"]
+        first, second = table.get_row_at(0), table.get_row_at(1)
+        assert first[2] == "◆ 待同步"
+        assert second[2] == "○ 未创建"
+        assert "1 个待同步" in app.screen.query_one("#prompts-summary").render().plain
+
+        await pilot.press("escape")
+        await pilot.pause()
+        assert isinstance(app.screen, DashboardScreen)
+
+
+@pytest.mark.asyncio
+async def test_prompts_screen_reports_a_missing_canonical_source() -> None:
+    app = AgentSkillsApp(
+        snapshot,
+        prompts_loader=lambda: prompts_inventory(source_present=False),
+    )
+    async with app.run_test(size=(120, 32)) as pilot:
+        await wait_for_inventory(app, pilot)
+        await pilot.press("p")
+        await wait_for_inventory(app, pilot)
+
+        table = app.screen.query_one("#prompts", DataTable)
+        assert table.get_row_at(0)[2].plain == "○ 无标准文件"
+        assert "未创建" in app.screen.query_one("#prompts-summary").render().plain
+
+
+@pytest.mark.asyncio
+async def test_prompts_sync_confirms_then_executes_the_plan() -> None:
+    plan = one_action_plan()
+    executed: list[PromptPlan] = []
+    app = AgentSkillsApp(
+        snapshot,
+        prompts_loader=prompts_inventory,
+        prompts_planner=lambda selected: plan,
+        prompts_sync_handler=executed.append,
+    )
+    async with app.run_test(size=(120, 32)) as pilot:
+        await wait_for_inventory(app, pilot)
+        await pilot.press("p")
+        await wait_for_inventory(app, pilot)
+
+        await pilot.press("s")
+        await pilot.pause()
+        assert isinstance(app.screen, ConfirmScreen)
+        assert "同步 1 个提示词文件" in app.screen.query_one("#confirm-title").render().plain
+
+        await pilot.press("y")
+        await app.workers.wait_for_complete()
+        await pilot.pause()
+        assert executed == [plan]
+        assert isinstance(app.screen, PromptsScreen)
+
+
+@pytest.mark.asyncio
+async def test_prompts_sync_without_changes_skips_the_dialog() -> None:
+    app = AgentSkillsApp(
+        snapshot,
+        prompts_loader=prompts_inventory,
+        prompts_planner=lambda selected: PromptPlan(),
+        prompts_sync_handler=lambda plan: pytest.fail("must not sync"),
+    )
+    async with app.run_test(size=(120, 32)) as pilot:
+        await wait_for_inventory(app, pilot)
+        await pilot.press("p")
+        await wait_for_inventory(app, pilot)
+
+        await pilot.press("s")
+        await pilot.pause()
+        assert isinstance(app.screen, PromptsScreen)
+
+
+@pytest.mark.asyncio
+async def test_prompts_t_syncs_only_the_selected_host() -> None:
+    plan = one_action_plan()
+    planned: list[set[str] | None] = []
+    executed: list[PromptPlan] = []
+
+    def planner(selected: set[str] | None) -> PromptPlan:
+        planned.append(selected)
+        return plan
+
+    app = AgentSkillsApp(
+        snapshot,
+        prompts_loader=prompts_inventory,
+        prompts_planner=planner,
+        prompts_sync_handler=executed.append,
+    )
+    async with app.run_test(size=(120, 32)) as pilot:
+        await wait_for_inventory(app, pilot)
+        await pilot.press("p")
+        await wait_for_inventory(app, pilot)
+
+        await pilot.press("t")
+        await pilot.pause()
+        assert planned == [{"codex"}]
+        assert isinstance(app.screen, ConfirmScreen)
+        message = app.screen.query_one("#confirm-message").render().plain
+        assert "只把标准内容写入选中主机的" in message
+
+        await pilot.press("y")
+        await app.workers.wait_for_complete()
+        await pilot.pause()
+        assert executed == [plan]
+        assert isinstance(app.screen, PromptsScreen)
+
+
+@pytest.mark.asyncio
+async def test_prompts_capture_uses_the_highlighted_host() -> None:
+    captured: list[str] = []
+    app = AgentSkillsApp(
+        snapshot,
+        prompts_loader=prompts_inventory,
+        prompts_capture_handler=captured.append,
+    )
+    async with app.run_test(size=(120, 32)) as pilot:
+        await wait_for_inventory(app, pilot)
+        await pilot.press("p")
+        await wait_for_inventory(app, pilot)
+
+        await pilot.press("c")
+        await pilot.pause()
+        assert isinstance(app.screen, ConfirmScreen)
+
+        await pilot.press("y")
+        await app.workers.wait_for_complete()
+        await pilot.pause()
+        assert captured == ["codex"]
+
+
+@pytest.mark.asyncio
+async def test_prompts_capture_refuses_a_host_without_a_file() -> None:
+    captured: list[str] = []
+    app = AgentSkillsApp(
+        snapshot,
+        prompts_loader=prompts_inventory,
+        prompts_capture_handler=captured.append,
+    )
+    async with app.run_test(size=(120, 32)) as pilot:
+        await wait_for_inventory(app, pilot)
+        await pilot.press("p")
+        await wait_for_inventory(app, pilot)
+
+        await pilot.press("down")  # Cursor has no prompt file on disk yet.
+        await pilot.press("c")
+        await pilot.pause()
+        assert isinstance(app.screen, PromptsScreen)
+        assert captured == []
+
+
+@pytest.mark.asyncio
+async def test_prompts_enter_opens_the_selected_hosts_file() -> None:
+    app = AgentSkillsApp(
+        snapshot,
+        prompts_loader=prompts_inventory,
+        prompts_reader=fake_prompts_reader,
+    )
+    async with app.run_test(size=(120, 32)) as pilot:
+        await wait_for_inventory(app, pilot)
+        await pilot.press("p")
+        await wait_for_inventory(app, pilot)
+
+        await pilot.press("enter")
+        await pilot.pause()
+        assert isinstance(app.screen, PromptViewScreen)
+        assert app.screen.view_title.startswith("Codex · ")
+        assert app.screen.query_one("#prompt-view-text", TextArea).text == "Rule one\nRule two\n"
+
+        await pilot.press("escape")
+        await pilot.pause()
+        assert isinstance(app.screen, PromptsScreen)
+
+
+@pytest.mark.asyncio
+async def test_prompts_b_opens_the_canonical_file() -> None:
+    app = AgentSkillsApp(
+        snapshot,
+        prompts_loader=prompts_inventory,
+        prompts_reader=fake_prompts_reader,
+    )
+    async with app.run_test(size=(120, 32)) as pilot:
+        await wait_for_inventory(app, pilot)
+        await pilot.press("p")
+        await wait_for_inventory(app, pilot)
+
+        await pilot.press("b")
+        await pilot.pause()
+        assert isinstance(app.screen, PromptViewScreen)
+        assert app.screen.view_title.startswith("标准文件 · ")
+        assert app.screen.query_one("#prompt-view-text", TextArea).text == "Canonical rule\n"
+
+
+@pytest.mark.asyncio
+async def test_prompts_viewer_explains_missing_files() -> None:
+    app = AgentSkillsApp(
+        snapshot,
+        prompts_loader=prompts_inventory,
+        prompts_reader=fake_prompts_reader,
+    )
+    async with app.run_test(size=(120, 32)) as pilot:
+        await wait_for_inventory(app, pilot)
+        await pilot.press("p")
+        await wait_for_inventory(app, pilot)
+
+        await pilot.press("down")  # Cursor has no prompt file on disk yet.
+        await pilot.press("v")
+        await pilot.pause()
+        assert isinstance(app.screen, PromptViewScreen)
+        assert app.screen.query_one("#prompt-view-text", TextArea).text == "（该文件还不存在）"

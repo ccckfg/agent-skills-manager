@@ -3,11 +3,25 @@ from __future__ import annotations
 import argparse
 import json
 from collections.abc import Sequence
+from pathlib import Path
 
 from agent_skills_manager.adapters.agent_registry import AgentRegistry
 from agent_skills_manager.config.settings import Settings
-from agent_skills_manager.domain.models import AgentPreference, InventorySnapshot, SyncMode
+from agent_skills_manager.domain.models import (
+    AgentPreference,
+    InventorySnapshot,
+    PromptInventory,
+    PromptPlan,
+    SyncMode,
+)
+from agent_skills_manager.infrastructure.prompt_store import PromptStore
 from agent_skills_manager.services.inventory import InventoryService
+from agent_skills_manager.services.prompt_sync import (
+    PromptInventoryService,
+    PromptSyncService,
+    capture_prompt as capture_prompt_file,
+    prompts_file,
+)
 from agent_skills_manager.services.skill_import import SkillImportService
 from agent_skills_manager.services.skill_removal import SkillRemovalService
 from agent_skills_manager.services.skill_sync import SkillSyncService
@@ -36,6 +50,20 @@ def _parser() -> argparse.ArgumentParser:
         command.add_argument("--agent", action="append", dest="agents")
         command.add_argument("--dry-run", action="store_true")
         command.add_argument("--yes", action="store_true")
+
+    prompts = commands.add_parser("prompts", help="Manage user-level instruction files")
+    prompts.add_argument(
+        "action", nargs="?", choices=("status", "capture", "sync"), default="status"
+    )
+    prompts.add_argument("--json", action="store_true", dest="as_json")
+    prompts.add_argument("--agent", action="append", dest="agents")
+    prompts.add_argument(
+        "--from",
+        dest="from_agent",
+        help="Seed the canonical prompt from this agent's instruction file",
+    )
+    prompts.add_argument("--dry-run", action="store_true")
+    prompts.add_argument("--yes", action="store_true")
     return parser
 
 
@@ -106,6 +134,128 @@ def _confirmed(assume_yes: bool) -> bool:
     return assume_yes or input("Apply this plan? [y/N] ").strip().lower() in {"y", "yes"}
 
 
+def _run_prompts(args: argparse.Namespace, settings: Settings) -> int:
+    registry = AgentRegistry.load_default()
+    store = PromptStore()
+    inventory = PromptInventoryService(registry, store).scan(
+        prompts_file(settings.central_skills_path)
+    )
+    targets = inventory.targets
+    if args.agents:
+        wanted = set(args.agents)
+        targets = [item for item in targets if item.agent_id in wanted]
+
+    if args.action == "status":
+        _print_prompt_status(inventory, targets, args.as_json)
+        return 0
+    if args.action == "capture":
+        return _capture_prompt(args, targets, settings, store)
+    return _sync_prompts(args, inventory, settings, store)
+
+
+def _print_prompt_status(inventory: PromptInventory, targets, as_json: bool) -> None:
+    rows = [
+        {
+            "id": target.agent_id,
+            "agent": target.display_name,
+            "path": str(target.path),
+            "style": target.style.value,
+            "present": target.present,
+            "matches": target.matches,
+            "attention": target.needs_attention,
+        }
+        for target in targets
+    ]
+    if as_json:
+        payload = {
+            "source": str(inventory.source),
+            "source_present": inventory.source_present,
+            "agents": rows,
+        }
+        print(json.dumps(payload, indent=2))
+        return
+    state = "present" if inventory.source_present else "missing"
+    print(f"Canonical prompt: {inventory.source} ({state})")
+    if not inventory.source_present:
+        print("Seed it with: agent-skills-manager prompts capture --from <agent>")
+    print(f"{'Agent':<18} {'Style':<7} {'Status':>10}  Path")
+    for row in rows:
+        if not inventory.source_present:
+            status = "no source"
+        elif not row["present"]:
+            status = "missing"
+        elif row["matches"]:
+            status = "ready"
+        else:
+            status = "different"
+        print(f"{row['agent']:<18} {row['style']:<7} {status:>10}  {row['path']}")
+
+
+def _capture_prompt(
+    args: argparse.Namespace,
+    targets,
+    settings: Settings,
+    store: PromptStore,
+) -> int:
+    origin = next((item for item in targets if item.agent_id == args.from_agent), None)
+    if origin is None:
+        known = ", ".join(item.agent_id for item in targets) or "none"
+        print(f"Error: --from must name an agent that defines a prompt file ({known}).")
+        return 1
+    source = prompts_file(settings.central_skills_path)
+    try:
+        backup = capture_prompt_file(
+            store,
+            source,
+            origin.path,
+            settings.central_skills_path.parent / "backups" / "prompts",
+        )
+    except FileNotFoundError:
+        print(f"Error: {origin.display_name} has no prompt file at {origin.path}.")
+        return 1
+    print(f"Captured {origin.path} -> {source}")
+    if backup:
+        print(f"Backup: {backup}")
+    return 0
+
+
+def _show_prompt_plan(plan: PromptPlan) -> None:
+    print("Prompts plan")
+    for warning in plan.warnings:
+        print(f"Warning: {warning}")
+    for action in plan.actions:
+        print(
+            f"  {action.agent_id}: {action.destination.name} "
+            f"[{action.style.value}] {action.source} -> {action.destination}"
+        )
+    if not plan.actions:
+        print("  No changes.")
+
+
+def _sync_prompts(
+    args: argparse.Namespace,
+    inventory: PromptInventory,
+    settings: Settings,
+    store: PromptStore,
+) -> int:
+    service = PromptSyncService(store)
+    selected = set(args.agents) if args.agents else None
+    plan = service.plan(inventory, selected)
+    _show_prompt_plan(plan)
+    if args.dry_run or not plan.has_changes:
+        return 0
+    if not _confirmed(args.yes):
+        print("Cancelled.")
+        return 1
+    service.execute(
+        plan,
+        allowed={item.path for item in inventory.targets},
+        backup_root=settings.central_skills_path.parent / "backups",
+    )
+    print(f"Applied {len(plan.actions)} change(s).")
+    return 0
+
+
 def _run_tui(settings: Settings) -> int:
     from agent_skills_manager.tui import run_tui
 
@@ -113,6 +263,11 @@ def _run_tui(settings: Settings) -> int:
     synchronizer = SkillSyncService()
     importer = SkillImportService()
     remover = SkillRemovalService()
+    prompt_store = PromptStore()
+    prompt_scanner = PromptInventoryService(AgentRegistry.load_default(), prompt_store)
+    prompt_sync = PromptSyncService(prompt_store)
+    prompts_source = prompts_file(settings.central_skills_path)
+    prompts_backup_root = settings.central_skills_path.parent / "backups" / "prompts"
 
     def fast_snapshot() -> InventorySnapshot:
         return inventory.scan(verify_contents=False)
@@ -149,7 +304,52 @@ def _run_tui(settings: Settings) -> int:
         settings.agents[agent.definition.id] = AgentPreference(previous.enabled, mode)
         settings.save()
 
-    run_tui(fast_snapshot, sync_agent, set_mode, add_skills, remove_skills, import_skills)
+    def prompts_loader() -> PromptInventory:
+        return prompt_scanner.scan(prompts_source)
+
+    def prompts_planner(selected: set[str] | None) -> PromptPlan:
+        return prompt_sync.plan(prompt_scanner.scan(prompts_source), selected)
+
+    def capture_prompt(agent_id: str) -> None:
+        target = next(
+            (
+                item
+                for item in prompt_scanner.scan(prompts_source).targets
+                if item.agent_id == agent_id
+            ),
+            None,
+        )
+        if target is None:
+            raise ValueError(f"{agent_id} 没有已登记的提示词文件")
+        capture_prompt_file(prompt_store, prompts_source, target.path, prompts_backup_root)
+
+    def sync_prompts(plan: PromptPlan) -> None:
+        scan = prompt_scanner.scan(prompts_source)
+        prompt_sync.execute(
+            plan,
+            allowed={item.path for item in scan.targets},
+            backup_root=settings.central_skills_path.parent / "backups",
+        )
+
+    def prompts_reader(path: Path) -> str:
+        try:
+            return path.read_text(encoding="utf-8")
+        except OSError:
+            return ""
+
+    run_tui(
+        fast_snapshot,
+        sync_agent,
+        set_mode,
+        add_skills,
+        remove_skills,
+        import_skills,
+        prompts_loader,
+        prompts_planner,
+        capture_prompt,
+        sync_prompts,
+        prompts_reader,
+    )
     return 0
 
 
@@ -165,6 +365,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         path = settings.save()
         print(f"Settings: {path}\nCentral skills: {settings.central_skills_path}")
         return 0
+    if args.command == "prompts":
+        return _run_prompts(args, settings)
     # Only sync has to prove that two directories hold the same bytes. import looks for
     # Skills the central store has never seen, and status reports presence and link
     # health unless verification is requested, so neither needs to hash every file.

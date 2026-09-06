@@ -15,6 +15,7 @@ uv build
 uv run agent-skills-manager init      # write settings.yaml + create ~/.agentskillsbank/skills
 uv run agent-skills-manager status --json
 uv run agent-skills-manager sync --agent codex --dry-run
+uv run agent-skills-manager prompts sync --dry-run
 uv run agent-skills-manager           # no subcommand => TUI
 ```
 
@@ -24,6 +25,7 @@ The bundled portable script is run directly, never through uv:
 python skill/agent-skills-manager/scripts/asm.py doctor --json
 python skill/agent-skills-manager/scripts/asm.py status --json
 python skill/agent-skills-manager/scripts/asm.py sync --agent codex --mode copy --json --apply
+python skill/agent-skills-manager/scripts/asm.py prompts sync --json --apply
 ```
 
 ## Two implementations, on purpose
@@ -51,6 +53,7 @@ Strict one-way layering — `cli.py` → `services/` → `infrastructure/` + `ad
 - `domain/models.py` — the whole vocabulary: `ItemStatus` (READY / MISSING / DIFFERENT / BROKEN / UNMANAGED / ERROR), `SyncMode`, `SyncAction`, `SyncPlan`, `InventorySnapshot`. Status drives every downstream decision. `needs_attention` deliberately excludes MISSING — not installing a central Skill is a choice, so it is surfaced through `missing_skills` in its own column while only BROKEN / UNMANAGED / DIFFERENT / ERROR (or a read error) demand action. Both implementations must agree on this; the CLI, TUI and portable script all read it.
 - `services/inventory.py` — builds the snapshot. `scan(verify_contents=True)` hashes directory contents; `verify_contents=False` reports presence and link health only. **Content hashing scales with agents × skills**, so only sync and import verify: `status` needs `--verify`, and the TUI never does. Skipping it took a real 100-skill store from 353s to 1.1s. Keep new scan callers on the cheap path unless they must prove two directories hold the same bytes.
 - `services/skill_sync.py`, `skill_import.py`, `skill_removal.py` — every mutating service splits `plan()` (pure, returns actions + warnings) from `execute()`. `plan()` must never touch the filesystem; callers show the plan before applying.
+- `services/prompt_sync.py` — the same plan/execute split for user-level instruction files (AGENTS.md, CLAUDE.md, GEMINI.md, ...). The canonical prompt lives at `<central-skills-parent>/prompts/user.md`; `execute()` only writes destinations that `scan()` resolved from the registry, and Cursor's `.mdc` target is rendered with `alwaysApply: true` frontmatter. Mirror changes in `asm_lib/prompts.py`.
 - `infrastructure/skill_store.py` — the only place that copies, links, hashes, or backs up.
 - `infrastructure/mcp_reader.py` — read-only, hand-rolled JSONC comment stripper plus `tomllib`. Understands three shapes: `mcpServers`, `mcp_servers`, and a top-level `mcp` block whose mapping values are servers (opencode and its forks) — scalars in that block are options, not servers. MCP config is never written by this codebase; that is left to the Skill's documented agent-driven workflow.
 
@@ -60,7 +63,7 @@ Layout and grouping policy live in pure, separately tested modules — `tui/layo
 
 The detail screen's right pane is a **two-way** diff against the central store, so an UNMANAGED Skill appears in both panes on purpose: it is installed here (left, removable with `D`) and it is a central difference (right, importable with `I`). `SkillTree.load_entries(pinned_names=…)` keeps those in a leading group instead of letting prefix grouping scatter them. `_split_right_selection` drives everything else: it stops `A` from trying to add a Skill the central store cannot supply, and flips the pane's single button between "添加所选" and "导入中央仓库". Tests in `test_tui.py` pin all of it.
 
-The TUI now has four mutation handlers (add / remove / import / sync), all injected from `cli._run_tui`. `test_cli.py::_tui_handlers` captures them by stubbing `agent_skills_manager.tui.run_tui`, which is how the real closures get tested against a sandboxed home rather than a mock.
+The TUI now has five mutation handlers (add / remove / import / sync / prompts sync), all injected from `cli._run_tui`. `test_cli.py::_tui_handlers` captures them by stubbing `agent_skills_manager.tui.run_tui`, which is how the real closures get tested against a sandboxed home rather than a mock. `PromptsScreen` (opened with `P` from the dashboard) only reads `PromptInventory`; sync always previews through `prompts_planner` and confirms before the worker applies the plan. The read-only `PromptViewScreen` (Enter/V on a host, B for the canonical file) reads file contents through an injected `prompts_reader`, keeping file I/O off the TUI seam too.
 
 Inventory loading and mutations run in `@work(thread=True)` workers so first paint is never blocked; results come back via `call_from_thread`.
 

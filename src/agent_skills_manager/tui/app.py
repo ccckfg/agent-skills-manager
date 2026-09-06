@@ -4,19 +4,38 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from importlib import import_module
+from pathlib import Path
 from typing import Any
 from webbrowser import open as open_uri
 
 from textual import work
 from textual.app import App
 
-from agent_skills_manager.domain.models import AgentInventory, InventorySnapshot, SyncMode
-from agent_skills_manager.tui.screens import AgentDetailScreen, DashboardScreen
+from agent_skills_manager.domain.models import (
+    AgentInventory,
+    InventorySnapshot,
+    PromptInventory,
+    PromptPlan,
+    PromptTarget,
+    SyncMode,
+)
+from agent_skills_manager.tui.screens import (
+    AgentDetailScreen,
+    DashboardScreen,
+    PromptViewScreen,
+    PromptsScreen,
+)
+from agent_skills_manager.tui.screens.confirm import ConfirmScreen
 
 SnapshotLoader = Callable[[], InventorySnapshot]
 SyncHandler = Callable[[AgentInventory], Any]
 SkillHandler = Callable[[AgentInventory, tuple[str, ...]], Any]
 ModeChangeHandler = Callable[[AgentInventory, SyncMode], Any]
+PromptsLoader = Callable[[], PromptInventory]
+PromptsPlanner = Callable[[set[str] | None], PromptPlan]
+PromptsCaptureHandler = Callable[[str], Any]
+PromptsSyncHandler = Callable[[PromptPlan], Any]
+PromptsReader = Callable[[Path], str]
 
 
 def _default_snapshot_loader() -> InventorySnapshot:
@@ -41,6 +60,11 @@ class AgentSkillsApp(App[None]):
         add_handler: SkillHandler | None = None,
         remove_handler: SkillHandler | None = None,
         import_handler: SkillHandler | None = None,
+        prompts_loader: PromptsLoader | None = None,
+        prompts_planner: PromptsPlanner | None = None,
+        prompts_capture_handler: PromptsCaptureHandler | None = None,
+        prompts_sync_handler: PromptsSyncHandler | None = None,
+        prompts_reader: PromptsReader | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
@@ -50,7 +74,13 @@ class AgentSkillsApp(App[None]):
         self.add_handler = add_handler
         self.remove_handler = remove_handler
         self.import_handler = import_handler
+        self.prompts_loader = prompts_loader
+        self.prompts_planner = prompts_planner
+        self.prompts_capture_handler = prompts_capture_handler
+        self.prompts_sync_handler = prompts_sync_handler
+        self.prompts_reader = prompts_reader
         self.snapshot: InventorySnapshot | None = None
+        self.prompts_inventory: PromptInventory | None = None
         self.dashboard = DashboardScreen()
 
     def get_default_screen(self) -> DashboardScreen:
@@ -124,6 +154,144 @@ class AgentSkillsApp(App[None]):
             return
         self.notify(f"已打开 {agent.skills_path}")
 
+    def open_prompts(self) -> None:
+        self.push_screen(PromptsScreen())
+        self.refresh_prompts()
+
+    def open_prompt_viewer(self, target: PromptTarget) -> None:
+        """Open a read-only viewer for one host's instruction file."""
+        self._open_prompt_viewer(target.display_name, target.path, target.present)
+
+    def open_canonical_viewer(self) -> None:
+        inventory = self.prompts_inventory
+        if inventory is None:
+            self.notify("提示词清单尚未就绪", severity="warning")
+            return
+        self._open_prompt_viewer("标准文件", inventory.source, inventory.source_present)
+
+    def _open_prompt_viewer(self, label: str, path: Path, exists: bool) -> None:
+        if not self.prompts_reader:
+            self.notify("没有可用的提示词读取处理器", severity="error")
+            return
+        if exists:
+            try:
+                content = self.prompts_reader(path)
+            except Exception as exc:
+                self.notify(f"无法读取 {path}：{exc}", severity="error")
+                return
+            if not content:
+                content = "（文件是空的）"
+        else:
+            content = "（该文件还不存在）"
+        self.push_screen(PromptViewScreen(f"{label} · {path}", content))
+
+    @work(thread=True, exclusive=True, group="prompts", exit_on_error=False)
+    def refresh_prompts(self, announce: bool = False) -> None:
+        """Scan prompt files in the background; prompt files are small, always compare."""
+        if not self.prompts_loader:
+            return
+        try:
+            inventory = self.prompts_loader()
+        except Exception as exc:
+            self.call_from_thread(self._operation_failed, f"无法读取提示词清单：{exc}")
+            return
+        self.call_from_thread(self._apply_prompts, inventory, announce)
+
+    def _apply_prompts(self, inventory: PromptInventory, announce: bool = False) -> None:
+        self.prompts_inventory = inventory
+        if isinstance(self.screen, PromptsScreen):
+            self.screen.set_inventory(inventory)
+        if announce:
+            self.notify("提示词清单已刷新")
+
+    def sync_prompts_flow(self, selected: set[str] | None = None) -> None:
+        """Plan in the foreground, confirm, then let the worker apply the plan.
+
+        `selected` narrows the plan to a single host's prompt file.
+        """
+        if not self.prompts_planner or not self.prompts_sync_handler:
+            self.notify("没有可用的提示词同步处理器", severity="error")
+            return
+        try:
+            plan = self.prompts_planner(selected)
+        except Exception as exc:
+            self.notify(f"无法生成同步计划：{exc}", severity="error")
+            return
+        for warning in plan.warnings:
+            self.notify(warning, severity="warning")
+        if not plan.has_changes:
+            if not plan.warnings:
+                scope = "选中主机已与标准一致" if selected else "所有提示词文件均已一致"
+                self.notify(scope)
+            return
+        listing = self._destination_preview(plan)
+        scope_note = "只把标准内容写入选中主机的" if selected else "将把标准内容写入"
+        self.push_screen(
+            ConfirmScreen(
+                f"同步 {len(plan.actions)} 个提示词文件",
+                f"{scope_note} {listing}。被替换的文件会先备份到 ~/.agentskillsbank/backups/<agent>/。",
+                f"确认同步 {len(plan.actions)} 个",
+            ),
+            lambda confirmed: self.sync_prompts(plan) if confirmed else None,
+        )
+
+    @staticmethod
+    def _destination_preview(plan: PromptPlan) -> str:
+        shown = [action.destination.name for action in plan.actions[:3]]
+        listing = "、".join(shown)
+        if len(plan.actions) > len(shown):
+            listing += f" 等 {len(plan.actions)} 个文件"
+        return listing
+
+    @work(thread=True, exclusive=True, group="mutation", exit_on_error=False)
+    def sync_prompts(self, plan: PromptPlan) -> None:
+        if not self.prompts_sync_handler:
+            self.call_from_thread(self._operation_failed, "没有可用的提示词同步处理器")
+            return
+        try:
+            self.prompts_sync_handler(plan)
+            inventory = self.prompts_loader()
+        except Exception as exc:
+            self.call_from_thread(self._operation_failed, str(exc))
+            return
+        self.call_from_thread(
+            self._prompts_done, inventory, f"已同步 {len(plan.actions)} 个提示词文件"
+        )
+
+    def capture_prompt_flow(self, target: PromptTarget) -> None:
+        if not self.prompts_capture_handler:
+            self.notify("没有可用的采集处理器", severity="error")
+            return
+        if not target.present:
+            self.notify(f"{target.display_name} 没有可采集的指令文件", severity="warning")
+            return
+        self.push_screen(
+            ConfirmScreen(
+                "采集标准提示词",
+                f"用 {target.display_name} 的指令文件内容初始化标准文件。"
+                "已有的标准文件会先备份到 ~/.agentskillsbank/backups/prompts/。",
+                "确认采集",
+            ),
+            lambda confirmed: self.capture_prompt(target.agent_id) if confirmed else None,
+        )
+
+    @work(thread=True, exclusive=True, group="mutation", exit_on_error=False)
+    def capture_prompt(self, agent_id: str) -> None:
+        if not self.prompts_capture_handler:
+            self.call_from_thread(self._operation_failed, "没有可用的采集处理器")
+            return
+        try:
+            self.prompts_capture_handler(agent_id)
+            inventory = self.prompts_loader()
+        except Exception as exc:
+            self.call_from_thread(self._operation_failed, str(exc))
+            return
+        self.call_from_thread(self._prompts_done, inventory, "标准提示词已更新")
+
+    def _prompts_done(self, inventory: PromptInventory, message: str) -> None:
+        self._apply_prompts(inventory)
+        self.notify(message)
+
     @work(thread=True, exclusive=True, group="mutation", exit_on_error=False)
     def add_skills(self, agent_id: str, skill_names: tuple[str, ...]) -> None:
         self._run_skill_operation("添加", self.add_handler, agent_id, skill_names)
@@ -177,6 +345,11 @@ def run_tui(
     add_handler: SkillHandler | None = None,
     remove_handler: SkillHandler | None = None,
     import_handler: SkillHandler | None = None,
+    prompts_loader: PromptsLoader | None = None,
+    prompts_planner: PromptsPlanner | None = None,
+    prompts_capture_handler: PromptsCaptureHandler | None = None,
+    prompts_sync_handler: PromptsSyncHandler | None = None,
+    prompts_reader: PromptsReader | None = None,
 ) -> None:
     """Launch the interactive application."""
     AgentSkillsApp(
@@ -186,4 +359,9 @@ def run_tui(
         add_handler,
         remove_handler,
         import_handler,
+        prompts_loader,
+        prompts_planner,
+        prompts_capture_handler,
+        prompts_sync_handler,
+        prompts_reader,
     ).run()

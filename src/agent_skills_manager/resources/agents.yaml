@@ -4,6 +4,12 @@
 # from most to least preferred. The detector keeps the first candidate that exists
 # on this machine, so renamed or relocated directories keep working.
 #
+# prompts_paths is the optional user-level instruction file (AGENTS.md, CLAUDE.md,
+# GEMINI.md, ...) a host loads into every session. Agents without a documented
+# user-level file simply omit the key and are skipped by the prompts commands.
+# prompt_style selects how canonical content is rendered for the host: "plain"
+# (the default) or "cursor", which wraps the content in .mdc frontmatter.
+#
 # Keys are lowercase platform.system() values ("windows", "darwin", "linux") with
 # "default" as the fallback. Every path goes through expand_path, so "~" and
 # environment variables such as %LOCALAPPDATA% are both supported.
@@ -15,16 +21,20 @@ agents:
     display_name: Claude Code
     skills_paths: {default: "~/.claude/skills"}
     mcp_paths: {default: "~/.claude.json"}
+    prompts_paths: {default: "~/.claude/CLAUDE.md"}
     mcp_format: jsonc
   - id: codex
     display_name: Codex
     skills_paths: {default: "~/.codex/skills"}
     mcp_paths: {default: "~/.codex/config.toml"}
+    prompts_paths: {default: "~/.codex/AGENTS.md"}
     mcp_format: toml
   - id: cursor
     display_name: Cursor
     skills_paths: {default: "~/.cursor/skills"}
     mcp_paths: {default: "~/.cursor/mcp.json"}
+    prompts_paths: {default: "~/.cursor/rules/global.mdc"}
+    prompt_style: cursor
     mcp_format: jsonc
   - id: antigravity
     display_name: Antigravity
@@ -33,6 +43,7 @@ agents:
         - "~/.gemini/config/skills"
         - "~/.gemini/antigravity/skills"
     mcp_paths: {default: "~/.gemini/antigravity/mcp_config.json"}
+    prompts_paths: {default: "~/.gemini/GEMINI.md"}
     mcp_format: jsonc
     supports_link: false
 
@@ -41,11 +52,13 @@ agents:
     display_name: Gemini CLI
     skills_paths: {default: "~/.gemini/skills"}
     mcp_paths: {default: "~/.gemini/settings.json"}
+    prompts_paths: {default: "~/.gemini/GEMINI.md"}
     mcp_format: jsonc
   - id: copilot-cli
     display_name: GitHub Copilot CLI
     skills_paths: {default: "~/.copilot/skills"}
     mcp_paths: {default: "~/.copilot/mcp-config.json"}
+    prompts_paths: {default: "~/.copilot/copilot-instructions.md"}
     mcp_format: jsonc
   - id: windsurf
     display_name: Windsurf
@@ -59,11 +72,13 @@ agents:
       default:
         - "~/.config/opencode/opencode.jsonc"
         - "~/.config/opencode/opencode.json"
+    prompts_paths: {default: "~/.config/opencode/AGENTS.md"}
     mcp_format: jsonc
   - id: kiro
     display_name: Kiro
     skills_paths: {default: "~/.kiro/skills"}
     mcp_paths: {default: "~/.kiro/settings/mcp.json"}
+    prompts_paths: {default: "~/.kiro/steering/global.md"}
     mcp_format: jsonc
   - id: pi
     display_name: Pi
@@ -77,6 +92,7 @@ agents:
     display_name: Droid
     skills_paths: {default: "~/.factory/skills"}
     mcp_paths: {default: "~/.factory/mcp.json"}
+    prompts_paths: {default: "~/.factory/AGENTS.md"}
     mcp_format: jsonc
 
   # --- China -----------------------------------------------------------------
@@ -84,11 +100,13 @@ agents:
     display_name: Qoder
     skills_paths: {default: "~/.qoder/skills"}
     mcp_paths: {default: "~/.qoder/mcp.json"}
+    prompts_paths: {default: "~/.qoder/AGENTS.md"}
     mcp_format: jsonc
   - id: qoder-cn
     display_name: Qoder CN
     skills_paths: {default: "~/.qoder-cn/skills"}
     mcp_paths: {default: "~/.qoder-cn/mcp.json"}
+    prompts_paths: {default: "~/.qoder-cn/AGENTS.md"}
     mcp_format: jsonc
   - id: trae
     display_name: Trae
@@ -166,4 +184,5 @@ agents:
         - "~/.agents/mcp.json"
         - "~/.agents/mcp/mcp.json"
         - "~/.config/agents/mcp.json"
+    prompts_paths: {default: "~/.agents/AGENTS.md"}
     mcp_format: jsonc

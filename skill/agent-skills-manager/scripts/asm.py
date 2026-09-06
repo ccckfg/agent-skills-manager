@@ -14,9 +14,17 @@ from asm_lib.inventory import scan  # noqa: E402
 from asm_lib.models import AgentDifference, AgentInventory, Plan  # noqa: E402
 from asm_lib.operations import apply_import, apply_sync, plan_import, plan_sync  # noqa: E402
 from asm_lib.paths import central_path, load_profiles  # noqa: E402
+from asm_lib.prompts import (  # noqa: E402
+    apply_prompts,
+    capture_prompt,
+    load_targets,
+    plan_prompts,
+    prompts_file,
+    scan_prompts,
+)
 
 
-VERSION = "0.4.0"
+VERSION = "0.4.1"
 TUI_INSTALL = "uv tool install git+https://github.com/ccckfg/agent-skills-manager.git"
 
 
@@ -54,6 +62,19 @@ def _parser(agent_ids: List[str]) -> argparse.ArgumentParser:
     _add_common(sync, agent_ids)
     sync.add_argument("--mode", choices=("copy", "link"), default="copy")
     sync.add_argument("--apply", action="store_true", help="Execute the displayed plan")
+
+    prompts = commands.add_parser("prompts", help="Manage user-level instruction files")
+    _add_common(prompts, agent_ids)
+    prompts.add_argument(
+        "action", nargs="?", choices=("status", "capture", "sync"), default="status"
+    )
+    prompts.add_argument(
+        "--from",
+        dest="from_agent",
+        metavar="AGENT_ID",
+        help="Seed the canonical prompt from this agent's instruction file",
+    )
+    prompts.add_argument("--apply", action="store_true", help="Execute the displayed sync plan")
 
     doctor = commands.add_parser("doctor", help="Check the portable Skill runtime")
     doctor.add_argument("--json", action="store_true", dest="as_json")
@@ -172,6 +193,87 @@ def _print_plan(plan: Plan, as_json: bool) -> None:
         print("Plan only. Re-run with --apply after explicit user confirmation.")
 
 
+def _print_prompt_status(source, source_present, targets, as_json: bool) -> None:
+    payload = {
+        "source": str(source),
+        "source_present": source_present,
+        "agents": [target.as_dict() for target in targets],
+    }
+    if as_json:
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return
+    state = "present" if source_present else "missing"
+    print("Canonical prompt: {} ({})".format(source, state))
+    if not source_present:
+        print("Seed it with: prompts capture --from <agent-id>")
+    print("{:<18} {:<7} {:>10}  {}".format("Agent", "Style", "Status", "Path"))
+    for target in targets:
+        if not source_present:
+            status = "no source"
+        elif not target.present:
+            status = "missing"
+        elif target.matches:
+            status = "ready"
+        else:
+            status = "different"
+        print(
+            "{:<18} {:<7} {:>10}  {}".format(target.display_name, target.style, status, target.path)
+        )
+
+
+def _prompts(args, profiles, central: Path) -> int:
+    source = prompts_file(central)
+    targets = load_targets(profiles)
+    warnings = []
+    if args.agents:
+        known = {item.id for item in targets}
+        undefined = [agent_id for agent_id in args.agents if agent_id not in known]
+        if undefined:
+            warnings.append(
+                "No user-level prompt file is defined for: {}".format(", ".join(undefined))
+            )
+    if args.action == "status":
+        scanned = scan_prompts(source, targets)
+        _print_prompt_status(source, source.is_file(), scanned, args.as_json)
+        return 0
+    if args.action == "capture":
+        return _capture_prompt(args, source, targets, central)
+    plan = plan_prompts(source, targets, set(args.agents) if args.agents else None)
+    plan.warnings.extend(warnings)
+    if args.apply:
+        apply_prompts(plan, source, [item.path for item in targets], central.parent / "backups")
+    _print_plan(plan, args.as_json)
+    return 0
+
+
+def _capture_prompt(args, source: Path, targets, central: Path) -> int:
+    origin = next((item for item in targets if item.id == args.from_agent), None)
+    if origin is None:
+        known = ", ".join(item.id for item in targets) or "none"
+        print("Error: --from must name an agent that defines a prompt file ({}).".format(known))
+        return 1
+    if not origin.path.is_file():
+        print(
+            "Error: {} has no prompt file at {}. Nothing to capture.".format(
+                origin.display_name, origin.path
+            )
+        )
+        return 1
+    old = capture_prompt(origin.path, source, central.parent / "backups" / "prompts")
+    payload = {
+        "source": str(source),
+        "captured_from": origin.id,
+        "backup": str(old) if old else None,
+    }
+    if args.as_json:
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return 0
+    print("Captured {} -> {}".format(origin.path, source))
+    if old:
+        print("Backup: {}".format(old))
+    return 0
+
+
 def _doctor(as_json: bool) -> None:
     payload = {
         "ok": sys.version_info >= (3, 9),
@@ -205,6 +307,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     if requested_agents:
         requested_ids = set(requested_agents)
         profiles = [profile for profile in profiles if profile.id in requested_ids]
+    if args.command == "prompts":
+        return _prompts(args, profiles, central)
     if args.command == "diff":
         skill_names = set(args.skills) if args.skills else None
         differences = compare(central, profiles, skill_names)

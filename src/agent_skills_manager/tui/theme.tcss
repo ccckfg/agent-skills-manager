@@ -60,6 +60,17 @@ Screen {
     scrollbar-color-active: #dd815f;
 }
 
+#prompts {
+    height: 1fr;
+    margin-top: 1;
+    background: #201f1c;
+    border: round #46413b;
+    scrollbar-background: #201f1c;
+    scrollbar-color: #625a51;
+    scrollbar-color-hover: #7a6e63;
+    scrollbar-color-active: #dd815f;
+}
+
 DataTable > .datatable--header {
     background: #292621;
     color: #c9bfb3;
@@ -320,4 +331,34 @@ Toast {
     background: #292621;
     color: #eee7dd;
     border: round #5a524a;
+}
+
+PromptViewScreen {
+    align: center middle;
+    background: #000000 65%;
+}
+
+#prompt-view {
+    width: 90%;
+    height: 85%;
+    padding: 1 2;
+    background: #27241f;
+    border: round #76503f;
+}
+
+#prompt-view-title {
+    height: 1;
+    color: #f1e8dc;
+    text-style: bold;
+}
+
+#prompt-view-text {
+    height: 1fr;
+    margin-top: 1;
+    background: #201f1c;
+    border: round #46413b;
+    scrollbar-background: #201f1c;
+    scrollbar-color: #625a51;
+    scrollbar-color-hover: #7a6e63;
+    scrollbar-color-active: #dd815f;
 }

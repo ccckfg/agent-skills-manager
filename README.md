@@ -216,6 +216,31 @@ TUI 用的是快速扫描，不逐字节比较内容，所以"版本不同"不�
 > [!IMPORTANT]
 > 添加和移除都会先显示确认框。移除不是永久删除：原目录会移动到 `~/.agentskillsbank/backups/<agent-id>/`。Antigravity 不支持软链接，按 `M` 不会切换到 Link。
 
+### 系统提示词管理（P 键）
+
+在总览按 `P` 进入「用户级系统提示词」界面，集中管理各 Agent 的指令文件（AGENTS.md、CLAUDE.md、GEMINI.md 等）。表格列出每个主机的指令文件路径与状态：
+
+| 状态 | 含义 |
+|---|---|
+| `● 一致` | 与标准文件内容相同 |
+| `◆ 待同步` | 文件已存在，但内容与标准文件不同 |
+| `○ 未创建` | 该主机还没有这个文件，同步时会创建 |
+| `○ 无标准文件` | 标准文件还不存在，先用 `C` 采集 |
+
+| 按键 | 作用 |
+|---|---|
+| `S` | 把标准内容同步给所有有差异的主机（先弹确认框） |
+| `T` | 只同步当前选中主机（先弹确认框） |
+| `C` | 用当前选中主机的指令文件初始化标准文件 |
+| `Enter` / `V` | 查看当前选中主机的指令文件内容（只读） |
+| `B` | 查看标准文件内容 |
+| `R` | 重新扫描 |
+| `Esc` | 返回总览 |
+
+查看器里按 `Esc` 返回表格。同步前先按 `Enter` 和 `B` 对比两边内容，可以确认到底会改什么。
+
+标准内容保存在 `~/.agentskillsbank/prompts/user.md`，与 Skills 中央仓库共用一套备份体系：被替换的文件会先移入 `~/.agentskillsbank/backups/<agent>/`。Antigravity 和 Gemini CLI 共用 `~/.gemini/GEMINI.md`，同步时只写一次。
+
 ## Copy 和 Link 应该选哪个？
 
 ### Copy：更稳妥的复印件
@@ -292,6 +317,27 @@ agent-skills-manager --config ./my-settings.yaml status
 ```
 
 这很适合区分"工作环境"和"个人环境"。
+
+## 管理用户级系统提示词（prompts）
+
+除了 Skills，管理器还能同步各 Agent 的**用户级指令文件**（AGENTS.md、CLAUDE.md、GEMINI.md 等）。标准内容保存在 `~/.agentskillsbank/prompts/user.md`，一次同步即可分发到所有支持的主机。
+
+便携脚本：
+
+```text
+python asm.py prompts status --json                        # 查看每个主机的指令文件状态
+python asm.py prompts capture --from claude-code --json    # 用某台主机的现有内容初始化标准文件
+python asm.py prompts sync --json                          # 预览同步计划
+python asm.py prompts sync --json --apply                  # 确认后执行
+```
+
+可选 CLI 用法相同：`agent-skills-manager prompts {status,capture,sync}`。
+
+- 被替换的文件会先备份到 `~/.agentskillsbank/backups/<agent>/`；
+- Cursor 的目标文件是 `.mdc` 规则，会自动包上 `alwaysApply: true` 的 frontmatter；
+- 换行符差异（CRLF/LF）不计为内容漂移；
+- Antigravity 和 Gemini CLI 共用 `~/.gemini/GEMINI.md`，计划只写一次并给出提示；
+- Cursor 设置界面的 User Rules 和 Qoder IDE 的 Personal Rules 保存在应用内部，不在文件管理范围内。
 
 ## MCP 为什么只读？
 
@@ -407,6 +453,7 @@ uv build
 - 不自动写入 API Key、令牌或其他秘密；
 - 不删除 Agent 独有的未纳管 Skill；
 - 替换已有 Skill 前在 `~/.agentskillsbank/backups/<agent>/` 创建集中备份；
+- prompts 同步同样先出计划、确认后才写文件，且仅写入注册表中登记的指令文件；
 - 内嵌脚本的 `import` 和 `sync` 默认只展示计划；
 - 内嵌脚本只有显式传入 `--apply` 才写文件；
 - 可选 CLI 默认需要终端确认；TUI 的单项添加和移除也必须经过确认框。

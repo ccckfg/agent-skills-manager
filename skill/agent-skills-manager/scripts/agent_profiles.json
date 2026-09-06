@@ -9,6 +9,9 @@
       "mcp_paths": {
         "default": "~/.claude.json"
       },
+      "prompts_paths": {
+        "default": "~/.claude/CLAUDE.md"
+      },
       "mcp_format": "jsonc"
     },
     {
@@ -19,6 +22,9 @@
       },
       "mcp_paths": {
         "default": "~/.codex/config.toml"
+      },
+      "prompts_paths": {
+        "default": "~/.codex/AGENTS.md"
       },
       "mcp_format": "toml"
     },
@@ -31,6 +37,10 @@
       "mcp_paths": {
         "default": "~/.cursor/mcp.json"
       },
+      "prompts_paths": {
+        "default": "~/.cursor/rules/global.mdc"
+      },
+      "prompt_style": "cursor",
       "mcp_format": "jsonc"
     },
     {
@@ -45,6 +55,9 @@
       "mcp_paths": {
         "default": "~/.gemini/antigravity/mcp_config.json"
       },
+      "prompts_paths": {
+        "default": "~/.gemini/GEMINI.md"
+      },
       "mcp_format": "jsonc",
       "supports_link": false
     },
@@ -57,6 +70,9 @@
       "mcp_paths": {
         "default": "~/.gemini/settings.json"
       },
+      "prompts_paths": {
+        "default": "~/.gemini/GEMINI.md"
+      },
       "mcp_format": "jsonc"
     },
     {
@@ -67,6 +83,9 @@
       },
       "mcp_paths": {
         "default": "~/.copilot/mcp-config.json"
+      },
+      "prompts_paths": {
+        "default": "~/.copilot/copilot-instructions.md"
       },
       "mcp_format": "jsonc"
     },
@@ -93,6 +112,9 @@
           "~/.config/opencode/opencode.json"
         ]
       },
+      "prompts_paths": {
+        "default": "~/.config/opencode/AGENTS.md"
+      },
       "mcp_format": "jsonc"
     },
     {
@@ -103,6 +125,9 @@
       },
       "mcp_paths": {
         "default": "~/.kiro/settings/mcp.json"
+      },
+      "prompts_paths": {
+        "default": "~/.kiro/steering/global.md"
       },
       "mcp_format": "jsonc"
     },
@@ -129,6 +154,9 @@
       "mcp_paths": {
         "default": "~/.factory/mcp.json"
       },
+      "prompts_paths": {
+        "default": "~/.factory/AGENTS.md"
+      },
       "mcp_format": "jsonc"
     },
     {
@@ -140,6 +168,9 @@
       "mcp_paths": {
         "default": "~/.qoder/mcp.json"
       },
+      "prompts_paths": {
+        "default": "~/.qoder/AGENTS.md"
+      },
       "mcp_format": "jsonc"
     },
     {
@@ -150,6 +181,9 @@
       },
       "mcp_paths": {
         "default": "~/.qoder-cn/mcp.json"
+      },
+      "prompts_paths": {
+        "default": "~/.qoder-cn/AGENTS.md"
       },
       "mcp_format": "jsonc"
     },
@@ -279,6 +313,9 @@
           "~/.agents/mcp/mcp.json",
           "~/.config/agents/mcp.json"
         ]
+      },
+      "prompts_paths": {
+        "default": "~/.agents/AGENTS.md"
       },
       "mcp_format": "jsonc"
     }

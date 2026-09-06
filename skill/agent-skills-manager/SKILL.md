@@ -43,6 +43,26 @@ Never manually copy, delete, or rewrite Skill directories when the bundled scrip
 
 Use Copy when uncertain. Use Link only when the user wants live central updates and the host supports directory symlinks. Antigravity always falls back to Copy.
 
+## Manage user-level instruction files (prompts)
+
+The bundled script also synchronizes one canonical prompt file to every host's
+user-level instruction file (AGENTS.md, CLAUDE.md, GEMINI.md, ...). Follow the
+same inspect-first workflow:
+
+1. Run `prompts status --json` to see each host's file and whether it matches.
+2. If no canonical file exists yet, run `prompts capture --from <agent-id>` to
+   seed it from a host the user names, or write the canonical file at
+   `~/.agentskillsbank/prompts/user.md` yourself.
+3. Run `prompts sync --json` without `--apply`, present the plan, obtain
+   explicit confirmation, and re-run with `--apply`.
+4. Re-run `prompts status --json` and verify the intended state.
+
+Never pass `--apply` speculatively. Replaced prompt files are backed up under
+`~/.agentskillsbank/backups/<agent>/`. Some hosts keep personal rules inside the
+application instead of a file (Cursor User Rules in settings, Qoder IDE
+Personal Rules); the script only manages the file-based entry points listed in
+`references/agents.md`.
+
 ## Handle MCP and other configuration
 
 Use the script only to list MCP server names. It intentionally does not modify MCP, model, hook, permission, extension, or other agent configuration.

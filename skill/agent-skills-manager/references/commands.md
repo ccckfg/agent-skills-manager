@@ -85,6 +85,43 @@ Apply by adding `--apply` to the exact reviewed command:
 
 Repeat `--agent` to select multiple hosts. Omit it to select all defined hosts. Antigravity changes Link to Copy and emits a warning.
 
+## Manage user-level instruction files
+
+Every supported host loads one user-level prompt file (AGENTS.md, CLAUDE.md,
+GEMINI.md, ...) into every session. The canonical content lives at
+`~/.agentskillsbank/prompts/user.md`, next to the central Skills store.
+
+Inspect the current state:
+
+```text
+<run> prompts status --json
+<run> prompts status --agent codex --json
+```
+
+Seed the canonical file from a host that already holds the content you want:
+
+```text
+<run> prompts capture --from claude-code --json
+```
+
+Preview the synchronization plan, then apply it:
+
+```text
+<run> prompts sync --json
+<run> prompts sync --json --apply
+```
+
+`status` compares every prompt file with the canonical content and reports
+`matches` as `true`, `false`, or `null` when there is no canonical file yet.
+`capture` backs up an existing canonical file into `~/.agentskillsbank/backups/prompts/`
+before overwriting it. `sync` writes every file that differs, backs up each
+replaced file into `~/.agentskillsbank/backups/<agent>/`, and never writes a path that
+was not resolved from the profile registry. Cursor's `.mdc` target is wrapped
+in frontmatter with `alwaysApply: true`; every other host receives plain
+Markdown with UTF-8 and LF endings. Line-ending differences never count as
+drift. Antigravity and Gemini CLI share `~/.gemini/GEMINI.md`; the plan writes
+it once and says so in a warning.
+
 ## Agent IDs
 
 `claude-code`, `codex`, `cursor`, `antigravity`, `gemini-cli`, `copilot-cli`,
@@ -99,6 +136,8 @@ See `references/agents.md` for each host's directories and quirks.
 
 - JSON status results contain `central`, `verified`, and `agents`.
 - Each agent carries `present` and `missing` counts alongside the full `skills` array.
+- JSON prompts status results contain `source`, `source_present`, and per-agent
+  `path`, `style`, `present`, `matches`, and `attention`.
 - `attention` means a state the user must resolve: a broken link, an unmanaged Skill,
   a read error, or — only when contents were compared — a Skill that differs. A Skill
   the central store has but the host does not is reported in `missing`, never as

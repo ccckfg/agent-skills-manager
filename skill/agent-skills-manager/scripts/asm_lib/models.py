@@ -11,6 +11,8 @@ class AgentProfile:
     mcp_path: Path
     mcp_format: str
     supports_link: bool = True
+    prompt_path: Optional[Path] = None
+    prompt_style: str = "plain"
 
 
 @dataclass(frozen=True)
@@ -167,3 +169,28 @@ class AgentDifference:
 
 def find_agent(inventories: List[AgentInventory], agent_id: str) -> Optional[AgentInventory]:
     return next((item for item in inventories if item.profile.id == agent_id), None)
+
+
+@dataclass(frozen=True)
+class PromptTarget:
+    id: str
+    display_name: str
+    path: Path
+    style: str = "plain"
+    present: bool = False
+    matches: Optional[bool] = None
+
+    @property
+    def needs_attention(self) -> bool:
+        return self.present and self.matches is False
+
+    def as_dict(self) -> Dict[str, object]:
+        return {
+            "id": self.id,
+            "agent": self.display_name,
+            "path": str(self.path),
+            "style": self.style,
+            "present": self.present,
+            "matches": self.matches,
+            "attention": self.needs_attention,
+        }

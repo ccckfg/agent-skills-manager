@@ -41,6 +41,33 @@ differ between two machines running the same version.
 Only Antigravity is defined as unable to follow a directory link; every other host
 accepts Copy or Link. Prefer Copy unless the user asks for live central updates.
 
+## User-level instruction files
+
+The `prompts` commands manage one file per host. Hosts without a documented
+user-level file are skipped by those commands.
+
+| Agent ID | File | Style |
+|---|---|---|
+| `claude-code` | `~/.claude/CLAUDE.md` | plain |
+| `codex` | `~/.codex/AGENTS.md` | plain |
+| `cursor` | `~/.cursor/rules/global.mdc` | cursor (`.mdc` frontmatter) |
+| `antigravity` | `~/.gemini/GEMINI.md` | plain |
+| `gemini-cli` | `~/.gemini/GEMINI.md` | plain |
+| `copilot-cli` | `~/.copilot/copilot-instructions.md` | plain |
+| `opencode` | `~/.config/opencode/AGENTS.md` | plain |
+| `kiro` | `~/.kiro/steering/global.md` | plain |
+| `droid` | `~/.factory/AGENTS.md` | plain |
+| `qoder` | `~/.qoder/AGENTS.md` | plain |
+| `qoder-cn` | `~/.qoder-cn/AGENTS.md` | plain |
+| `agents-shared` | `~/.agents/AGENTS.md` | plain |
+
+Antigravity and Gemini CLI read the same file, so one planned write covers
+both. Cursor's file is an `.mdc` rule wrapped in frontmatter with
+`alwaysApply: true`. Kiro loads global steering from `~/.kiro/steering/`; some
+Kiro releases had defects loading global steering, so verify inside the product
+before blaming the script. Cursor's in-app User Rules and Qoder IDE Personal
+Rules live inside the application and are not file-managed here.
+
 ## Host notes
 
 - **`agents-shared`** is a location, not a product. Cline, Zed, Warp, Amp, Replit, Pi,

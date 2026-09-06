@@ -65,6 +65,10 @@ def load_profiles(profile_file: Path) -> List[AgentProfile]:
                 mcp_path=resolve_path(item["mcp_paths"]),
                 mcp_format=item["mcp_format"],
                 supports_link=bool(item.get("supports_link", True)),
+                prompt_path=(
+                    resolve_path(item["prompts_paths"]) if item.get("prompts_paths") else None
+                ),
+                prompt_style=item.get("prompt_style", "plain"),
             )
         )
     return profiles

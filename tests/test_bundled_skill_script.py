@@ -281,3 +281,96 @@ def test_portable_diff_can_filter_skills_and_include_identical(tmp_path):
 
     assert payload["agents"][0]["summary"]["identical"] == 1
     assert payload["agents"][0]["skills"][0]["status"] == "identical"
+
+
+def seed_prompts(home: Path, content: str = "Use uv for Python projects") -> dict:
+    claude = home / ".claude" / "CLAUDE.md"
+    claude.parent.mkdir(parents=True)
+    claude.write_text(content, encoding="utf-8")
+    return run_script(home, "prompts", "capture", "--from", "claude-code", "--json")
+
+
+def test_portable_prompts_capture_seeds_the_canonical_file(tmp_path):
+    payload = seed_prompts(tmp_path)
+    status = run_script(tmp_path, "prompts", "status", "--json")
+
+    canonical = tmp_path / ".agentskillsbank" / "prompts" / "user.md"
+    assert canonical.read_text(encoding="utf-8") == "Use uv for Python projects\n"
+    assert payload["captured_from"] == "claude-code"
+    assert payload["backup"] is None
+    assert status["source_present"] is True
+    claude = next(item for item in status["agents"] if item["id"] == "claude-code")
+    assert claude["matches"] is True
+    codex = next(item for item in status["agents"] if item["id"] == "codex")
+    assert codex["present"] is False and codex["matches"] is False
+
+
+def test_portable_prompts_sync_plans_then_applies(tmp_path):
+    seed_prompts(tmp_path, "Rule one\n")
+    destination = tmp_path / ".codex" / "AGENTS.md"
+
+    plan = run_script(tmp_path, "prompts", "sync", "--agent", "codex", "--json")
+    assert plan["applied"] is False
+    assert not destination.exists()
+
+    applied = run_script(tmp_path, "prompts", "sync", "--agent", "codex", "--json", "--apply")
+
+    assert applied["applied"] is True
+    assert destination.read_text(encoding="utf-8") == "Rule one\n"
+
+
+def test_portable_prompts_sync_backs_up_an_existing_file(tmp_path):
+    seed_prompts(tmp_path, "New rules")
+    destination = tmp_path / ".codex" / "AGENTS.md"
+    destination.parent.mkdir(parents=True)
+    destination.write_text("Old rules", encoding="utf-8")
+
+    applied = run_script(tmp_path, "prompts", "sync", "--agent", "codex", "--json", "--apply")
+
+    assert destination.read_text(encoding="utf-8") == "New rules\n"
+    backup = Path(applied["backups"][0])
+    assert backup.parent == tmp_path / ".agentskillsbank" / "backups" / "codex"
+    assert backup.read_text(encoding="utf-8") == "Old rules"
+
+
+def test_portable_prompts_cursor_target_receives_frontmatter(tmp_path):
+    seed_prompts(tmp_path)
+
+    run_script(tmp_path, "prompts", "sync", "--agent", "cursor", "--json", "--apply")
+
+    rules = tmp_path / ".cursor" / "rules" / "global.mdc"
+    text = rules.read_text(encoding="utf-8")
+    assert text.startswith("---\ndescription: User coding instructions\nalwaysApply: true\n")
+    assert text.endswith("Use uv for Python projects\n")
+
+
+def test_portable_prompts_sync_writes_a_shared_gemini_file_once(tmp_path):
+    seed_prompts(tmp_path, "Shared rules\n")
+
+    plan = run_script(
+        tmp_path,
+        "prompts",
+        "sync",
+        "--agent",
+        "antigravity",
+        "--agent",
+        "gemini-cli",
+        "--json",
+    )
+    applied = run_script(
+        tmp_path,
+        "prompts",
+        "sync",
+        "--agent",
+        "antigravity",
+        "--agent",
+        "gemini-cli",
+        "--json",
+        "--apply",
+    )
+
+    assert len(plan["actions"]) == 1
+    assert any("share one prompt file" in warning for warning in plan["warnings"])
+    gemini = tmp_path / ".gemini" / "GEMINI.md"
+    assert gemini.read_text(encoding="utf-8") == "Shared rules\n"
+    assert applied["backups"] == []
