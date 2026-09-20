@@ -5,10 +5,11 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 
+from textual import events
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
-from textual.widgets import Button, Static, TextArea
+from textual.widgets import Button, Input, Static, TextArea
 
 from agent_skills_manager.tui.constants import (
     CMD_FORCE_QUIT,
@@ -17,17 +18,20 @@ from agent_skills_manager.tui.constants import (
     CMD_WRITE_QUIT,
     CMD_WRITE_QUIT_ALT,
     ID_CLOSE_BUTTON,
+    ID_CMD_INPUT,
+    ID_FORCE_QUIT_BUTTON,
     ID_MODE_BUTTON,
     ID_SAVE_BUTTON,
     ID_VIM_TEXT_AREA,
     MSG_SAVE_FAILED,
     MSG_SAVE_SUCCESS,
     MSG_UNKNOWN_COMMAND,
-    MSG_UNSAVED_WARNING,
     VimMode,
 )
+from agent_skills_manager.tui.screens.confirm import ConfirmScreen
 from agent_skills_manager.tui.screens.prompts import PromptViewScreen
-from agent_skills_manager.tui.widgets.vim_editor import EditorStatusBar, VimTextArea
+from agent_skills_manager.tui.widgets.status_bar import EditorStatusBar
+from agent_skills_manager.tui.widgets.vim_editor import VimTextArea
 
 SaveHandler = Callable[[Path, str], None]
 
@@ -58,20 +62,22 @@ class PromptEditorScreen(PromptViewScreen):
                 yield Button(
                     f"模式: {VimMode.NORMAL.value}",
                     id=ID_MODE_BUTTON,
-                    compact=True,
-                    classes="quiet-button",
+                    classes="editor-btn",
                 )
                 yield Button(
                     "保存 (:w)",
                     id=ID_SAVE_BUTTON,
-                    compact=True,
-                    classes="primary-action quiet-button",
+                    classes="editor-btn editor-btn-primary",
                 )
                 yield Button(
                     "关闭 (:q)",
                     id=ID_CLOSE_BUTTON,
-                    compact=True,
-                    classes="quiet-button",
+                    classes="editor-btn",
+                )
+                yield Button(
+                    "放弃退出 (:q!)",
+                    id=ID_FORCE_QUIT_BUTTON,
+                    classes="editor-btn editor-btn-danger",
                 )
             yield VimTextArea(self.view_content)
             yield EditorStatusBar()
@@ -88,8 +94,6 @@ class PromptEditorScreen(PromptViewScreen):
             mode=editor.mode,
             cursor=editor.cursor_location,
             is_dirty=editor.is_dirty,
-            cmd_text=editor.command_text,
-            message=editor.status_message,
         )
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -100,17 +104,39 @@ class PromptEditorScreen(PromptViewScreen):
             self.action_save()
         elif event.button.id == ID_CLOSE_BUTTON:
             self.action_close(force=False)
+        elif event.button.id == ID_FORCE_QUIT_BUTTON:
+            self.action_force_quit()
 
     def on_vim_text_area_mode_changed(self, event: VimTextArea.ModeChanged) -> None:
         btn = self.query_one(f"#{ID_MODE_BUTTON}", Button)
-        btn.label = f"模式: {event.mode.value}"
+        mode_val = event.mode.value if hasattr(event.mode, "value") else str(event.mode)
+        btn.label = f"模式: {mode_val}"
         self._refresh_status()
+
+    def on_vim_text_area_command_mode_requested(
+        self, event: VimTextArea.CommandModeRequested
+    ) -> None:
+        editor = self.query_one(f"#{ID_VIM_TEXT_AREA}", VimTextArea)
+        editor.set_mode(VimMode.COMMAND)
+        status_bar = self.query_one(EditorStatusBar)
+        status_bar.open_command_input()
 
     def on_vim_text_area_save_requested(self, event: VimTextArea.SaveRequested) -> None:
         self.action_save()
 
-    def on_vim_text_area_command_executed(self, event: VimTextArea.CommandExecuted) -> None:
-        cmd = event.command
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        if event.input.id == ID_CMD_INPUT:
+            raw_cmd = event.value.strip()
+            cmd = raw_cmd[1:] if raw_cmd.startswith(":") else raw_cmd
+            self._execute_ex_command(cmd)
+
+    def _execute_ex_command(self, cmd: str) -> None:
+        status_bar = self.query_one(EditorStatusBar)
+        status_bar.close_command_input()
+        editor = self.query_one(f"#{ID_VIM_TEXT_AREA}", VimTextArea)
+        editor.set_mode(VimMode.NORMAL)
+        editor.focus()
+
         if cmd == CMD_WRITE:
             self.action_save()
         elif cmd == CMD_QUIT:
@@ -118,10 +144,21 @@ class PromptEditorScreen(PromptViewScreen):
         elif cmd in (CMD_WRITE_QUIT, CMD_WRITE_QUIT_ALT):
             self.action_save_and_quit()
         elif cmd == CMD_FORCE_QUIT:
-            self.dismiss(None)
+            self.action_force_quit()
         else:
             self.notify(MSG_UNKNOWN_COMMAND.format(cmd=cmd), severity="warning")
             self._refresh_status()
+
+    def on_key(self, event: events.Key) -> None:
+        cmd_input = self.query_one(f"#{ID_CMD_INPUT}", Input)
+        if cmd_input.has_focus and event.key == "escape":
+            event.stop()
+            event.prevent_default()
+            status_bar = self.query_one(EditorStatusBar)
+            status_bar.close_command_input()
+            editor = self.query_one(f"#{ID_VIM_TEXT_AREA}", VimTextArea)
+            editor.set_mode(VimMode.NORMAL)
+            editor.focus()
 
     def on_text_area_selection_changed(self, event: TextArea.SelectionChanged) -> None:
         self._refresh_status()
@@ -150,14 +187,32 @@ class PromptEditorScreen(PromptViewScreen):
         if self.action_save():
             self.dismiss(None)
 
+    def action_force_quit(self) -> None:
+        self.dismiss(None)
+
     def action_close(self, force: bool = False) -> None:
         editor = self.query_one(f"#{ID_VIM_TEXT_AREA}", VimTextArea)
         if not force and editor.is_dirty:
-            self.notify(MSG_UNSAVED_WARNING, severity="warning")
+            self.app.push_screen(
+                ConfirmScreen(
+                    "放弃修改并退出？",
+                    "当前文件包含未保存的修改。如果退出，这些修改将会丢失。",
+                    "放弃并退出",
+                ),
+                lambda confirmed: self.dismiss(None) if confirmed else None,
+            )
             return
         self.dismiss(None)
 
     def action_handle_escape(self) -> None:
+        cmd_input = self.query_one(f"#{ID_CMD_INPUT}", Input)
+        if cmd_input.has_focus:
+            status_bar = self.query_one(EditorStatusBar)
+            status_bar.close_command_input()
+            editor = self.query_one(f"#{ID_VIM_TEXT_AREA}", VimTextArea)
+            editor.set_mode(VimMode.NORMAL)
+            editor.focus()
+            return
         editor = self.query_one(f"#{ID_VIM_TEXT_AREA}", VimTextArea)
         if editor.mode != VimMode.NORMAL:
             editor.set_mode(VimMode.NORMAL)

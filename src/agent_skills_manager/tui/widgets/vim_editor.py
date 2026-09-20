@@ -1,25 +1,17 @@
-"""Vim-enabled text area widget and editor status bar."""
+"""Vim-enabled text area widget supporting mouse GUI interaction and Vim modal editing."""
 
 from __future__ import annotations
 
 from typing import ClassVar
 
 from textual import events
-from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
-from textual.containers import Horizontal
 from textual.message import Message
 from textual.reactive import reactive
-from textual.widgets import Static, TextArea
+from textual.widgets import TextArea
 
 from agent_skills_manager.tui.constants import (
-    ID_CMD_INPUT,
-    ID_CURSOR_INFO,
-    ID_MODE_BADGE,
-    ID_STATUS_BAR,
-    ID_STATUS_INFO,
     ID_VIM_TEXT_AREA,
-    LABEL_MODIFIED,
     VimMode,
 )
 from agent_skills_manager.tui.vim_engine import VimEngine, VimResult
@@ -46,7 +38,6 @@ class VimTextArea(TextArea):
 
     mode = reactive(VimMode.NORMAL)
     is_dirty = reactive(False)
-    command_text = reactive("")
     status_message = reactive("")
 
     class ModeChanged(Message):
@@ -54,10 +45,10 @@ class VimTextArea(TextArea):
             super().__init__()
             self.mode = mode
 
-    class CommandExecuted(Message):
-        def __init__(self, command: str) -> None:
-            super().__init__()
-            self.command = command
+    class CommandModeRequested(Message):
+        """Dispatched when user types ':' in normal mode to trigger command input."""
+
+        pass
 
     class SaveRequested(Message):
         pass
@@ -71,10 +62,6 @@ class VimTextArea(TextArea):
     def set_mode(self, mode: VimMode) -> None:
         self.mode = mode
         self.vim_engine.set_mode(mode)
-        if mode == VimMode.COMMAND:
-            self.command_text = ":"
-        else:
-            self.command_text = ""
         self.post_message(self.ModeChanged(mode))
 
     def toggle_mode(self) -> None:
@@ -97,20 +84,6 @@ class VimTextArea(TextArea):
             event.stop()
             event.prevent_default()
             self.action_save_document()
-            return
-
-        if self.mode == VimMode.COMMAND:
-            event.stop()
-            event.prevent_default()
-            res = self.vim_engine.handle_key(event.key, event.is_printable, event.character)
-            if res.action == "exec_command":
-                cmd = str(res.param)
-                self.set_mode(VimMode.NORMAL)
-                self.post_message(self.CommandExecuted(cmd))
-            elif res.action == "update_command":
-                self.command_text = f":{res.param}"
-            elif res.action == "cancel_command":
-                self.set_mode(VimMode.NORMAL)
             return
 
         if self.mode == VimMode.NORMAL:
@@ -178,7 +151,7 @@ class VimTextArea(TextArea):
             self.set_mode(VimMode.INSERT)
             self.check_dirty()
         elif act == "enter_command":
-            self.set_mode(VimMode.COMMAND)
+            self.post_message(self.CommandModeRequested())
         elif act == "delete_char":
             self.action_delete_right()
             self.check_dirty()
@@ -211,68 +184,3 @@ class VimTextArea(TextArea):
         elif act == "redo":
             self.action_redo()
             self.check_dirty()
-
-
-class EditorStatusBar(Horizontal):
-    """Bottom status bar displaying mode, command input, position, and dirty status."""
-
-    DEFAULT_CSS = """
-    EditorStatusBar {
-        height: 1;
-        background: #211f1c;
-        padding: 0 1;
-        align-vertical: middle;
-    }
-    .status-left {
-        width: auto;
-        color: #e69370;
-        text-style: bold;
-    }
-    .status-cmd {
-        width: 1fr;
-        color: #f1e8dc;
-    }
-    .status-center {
-        width: 1fr;
-        color: #9f988e;
-        content-align: center middle;
-    }
-    .status-right {
-        width: auto;
-        color: #9f988e;
-        content-align: right middle;
-    }
-    """
-
-    def __init__(self, **kwargs) -> None:
-        super().__init__(id=ID_STATUS_BAR, **kwargs)
-
-    def compose(self) -> ComposeResult:
-        yield Static("-- NORMAL --", id=ID_MODE_BADGE, classes="status-left")
-        yield Static("", id=ID_CMD_INPUT, classes="status-cmd")
-        yield Static("", id=ID_STATUS_INFO, classes="status-center")
-        yield Static("Ln 1, Col 1", id=ID_CURSOR_INFO, classes="status-right")
-
-    def update_status(
-        self,
-        mode: VimMode,
-        cursor: tuple[int, int],
-        is_dirty: bool,
-        cmd_text: str = "",
-        message: str = "",
-    ) -> None:
-        badge = self.query_one(f"#{ID_MODE_BADGE}", Static)
-        cmd_widget = self.query_one(f"#{ID_CMD_INPUT}", Static)
-        info_widget = self.query_one(f"#{ID_STATUS_INFO}", Static)
-        cursor_widget = self.query_one(f"#{ID_CURSOR_INFO}", Static)
-
-        if mode == VimMode.COMMAND:
-            badge.update(":")
-            cmd_widget.update(cmd_text[1:] if cmd_text.startswith(":") else cmd_text)
-        else:
-            badge.update(f"-- {mode.value} --")
-            cmd_widget.update(message)
-
-        dirty_str = f" {LABEL_MODIFIED}" if is_dirty else ""
-        info_widget.update(dirty_str)
-        cursor_widget.update(f"Ln {cursor[0] + 1}, Col {cursor[1] + 1}")

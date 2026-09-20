@@ -9,6 +9,7 @@ from textual.app import App
 from textual.widgets import Button
 
 from agent_skills_manager.tui.constants import (
+    ID_FORCE_QUIT_BUTTON,
     ID_MODE_BUTTON,
     ID_SAVE_BUTTON,
     ID_VIM_TEXT_AREA,
@@ -178,6 +179,58 @@ async def test_prompt_editor_vim_command_save_and_quit() -> None:
         # Type :q to quit
         await pilot.press("colon")
         await pilot.press("q")
+        await pilot.press("enter")
+        await pilot.pause()
+        assert not isinstance(app.screen, PromptEditorScreen)
+
+
+@pytest.mark.asyncio
+async def test_prompt_editor_gui_force_quit_with_unsaved_changes() -> None:
+    screen = PromptEditorScreen(
+        title="Test Prompt",
+        content="hello",
+        path=Path("/tmp/test.md"),
+    )
+    app = EditorTestApp(screen)
+
+    async with app.run_test(size=(120, 35)) as pilot:
+        await pilot.pause()
+        editor = screen.query_one(f"#{ID_VIM_TEXT_AREA}", VimTextArea)
+        force_btn = screen.query_one(f"#{ID_FORCE_QUIT_BUTTON}", Button)
+
+        # Make it dirty
+        editor.text = "modified content"
+        editor.check_dirty()
+        assert editor.is_dirty
+
+        # Click force quit button
+        force_btn.press()
+        await pilot.pause()
+        assert not isinstance(app.screen, PromptEditorScreen)
+
+
+@pytest.mark.asyncio
+async def test_prompt_editor_vim_force_quit_command() -> None:
+    screen = PromptEditorScreen(
+        title="Test Prompt",
+        content="hello",
+        path=Path("/tmp/test.md"),
+    )
+    app = EditorTestApp(screen)
+
+    async with app.run_test(size=(120, 35)) as pilot:
+        await pilot.pause()
+        editor = screen.query_one(f"#{ID_VIM_TEXT_AREA}", VimTextArea)
+
+        # Make it dirty
+        editor.text = "modified content"
+        editor.check_dirty()
+        assert editor.is_dirty
+
+        # Type :q! to force quit
+        await pilot.press("colon")
+        await pilot.press("q")
+        await pilot.press("exclamation_mark")
         await pilot.press("enter")
         await pilot.pause()
         assert not isinstance(app.screen, PromptEditorScreen)

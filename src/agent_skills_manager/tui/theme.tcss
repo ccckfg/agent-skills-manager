@@ -402,3 +402,53 @@ PromptEditorScreen {
 #prompt-editor-shell VimTextArea:focus {
     border: round #dd815f;
 }
+
+.editor-btn {
+    height: 3;
+    min-width: 14;
+    margin-left: 1;
+    padding: 0 1;
+    border: round #625a51;
+    background: #2b2824;
+    color: #d2c8bc;
+}
+
+.editor-btn:hover {
+    background: #37332d;
+    border: round #8a7e72;
+}
+
+.editor-btn-primary {
+    background: #c96f50;
+    color: #1c1714;
+    border: round #e18a68;
+    text-style: bold;
+}
+
+.editor-btn-primary:hover {
+    background: #df815f;
+}
+
+.editor-btn-danger {
+    background: #8f493c;
+    color: #fff4ed;
+    border: round #b96352;
+    text-style: bold;
+}
+
+.editor-btn-danger:hover {
+    background: #aa5747;
+}
+
+#editor-cmd-input {
+    height: 1;
+    border: none;
+    background: #1c1a17;
+    color: #f1e8dc;
+    padding: 0 1;
+}
+
+#editor-cmd-input:focus {
+    border: none;
+    background: #24211d;
+}
