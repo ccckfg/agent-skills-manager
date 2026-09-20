@@ -362,3 +362,43 @@ PromptViewScreen {
     scrollbar-color-hover: #7a6e63;
     scrollbar-color-active: #dd815f;
 }
+
+PromptEditorScreen {
+    align: center middle;
+    background: #000000 65%;
+}
+
+#prompt-editor-shell {
+    width: 92%;
+    height: 88%;
+    padding: 1 2;
+    background: #27241f;
+    border: round #76503f;
+}
+
+#prompt-editor-header {
+    height: 3;
+    align-vertical: middle;
+    margin-bottom: 1;
+}
+
+#prompt-editor-title {
+    width: 1fr;
+    color: #f1e8dc;
+    text-style: bold;
+    content-align: left middle;
+}
+
+#prompt-editor-shell VimTextArea {
+    height: 1fr;
+    background: #201f1c;
+    border: round #46413b;
+    scrollbar-background: #201f1c;
+    scrollbar-color: #625a51;
+    scrollbar-color-hover: #7a6e63;
+    scrollbar-color-active: #dd815f;
+}
+
+#prompt-editor-shell VimTextArea:focus {
+    border: round #dd815f;
+}

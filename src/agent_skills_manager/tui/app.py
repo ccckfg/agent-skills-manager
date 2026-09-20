@@ -22,7 +22,7 @@ from agent_skills_manager.domain.models import (
 from agent_skills_manager.tui.screens import (
     AgentDetailScreen,
     DashboardScreen,
-    PromptViewScreen,
+    PromptEditorScreen,
     PromptsScreen,
 )
 from agent_skills_manager.tui.screens.confirm import ConfirmScreen
@@ -36,6 +36,7 @@ PromptsPlanner = Callable[[set[str] | None], PromptPlan]
 PromptsCaptureHandler = Callable[[str], Any]
 PromptsSyncHandler = Callable[[PromptPlan], Any]
 PromptsReader = Callable[[Path], str]
+PromptsWriter = Callable[[Path, str], None]
 
 
 def _default_snapshot_loader() -> InventorySnapshot:
@@ -65,6 +66,7 @@ class AgentSkillsApp(App[None]):
         prompts_capture_handler: PromptsCaptureHandler | None = None,
         prompts_sync_handler: PromptsSyncHandler | None = None,
         prompts_reader: PromptsReader | None = None,
+        prompts_writer: PromptsWriter | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
@@ -79,6 +81,7 @@ class AgentSkillsApp(App[None]):
         self.prompts_capture_handler = prompts_capture_handler
         self.prompts_sync_handler = prompts_sync_handler
         self.prompts_reader = prompts_reader
+        self.prompts_writer = prompts_writer
         self.snapshot: InventorySnapshot | None = None
         self.prompts_inventory: PromptInventory | None = None
         self.dashboard = DashboardScreen()
@@ -159,7 +162,7 @@ class AgentSkillsApp(App[None]):
         self.refresh_prompts()
 
     def open_prompt_viewer(self, target: PromptTarget) -> None:
-        """Open a read-only viewer for one host's instruction file."""
+        """Open an editor/viewer for one host's instruction file."""
         self._open_prompt_viewer(target.display_name, target.path, target.present)
 
     def open_canonical_viewer(self) -> None:
@@ -168,6 +171,16 @@ class AgentSkillsApp(App[None]):
             self.notify("提示词清单尚未就绪", severity="warning")
             return
         self._open_prompt_viewer("标准文件", inventory.source, inventory.source_present)
+
+    def save_prompt(self, path: Path, content: str) -> None:
+        """Save prompt file and refresh prompt inventory."""
+        if self.prompts_writer:
+            self.prompts_writer(path, content)
+        else:
+            from agent_skills_manager.infrastructure.prompt_store import PromptStore
+
+            PromptStore().write(path, content)
+        self.refresh_prompts()
 
     def _open_prompt_viewer(self, label: str, path: Path, exists: bool) -> None:
         if not self.prompts_reader:
@@ -183,7 +196,14 @@ class AgentSkillsApp(App[None]):
                 content = "（文件是空的）"
         else:
             content = "（该文件还不存在）"
-        self.push_screen(PromptViewScreen(f"{label} · {path}", content))
+        self.push_screen(
+            PromptEditorScreen(
+                f"{label} · {path}",
+                content,
+                path=path,
+                save_handler=self.save_prompt,
+            )
+        )
 
     @work(thread=True, exclusive=True, group="prompts", exit_on_error=False)
     def refresh_prompts(self, announce: bool = False) -> None:
@@ -350,6 +370,7 @@ def run_tui(
     prompts_capture_handler: PromptsCaptureHandler | None = None,
     prompts_sync_handler: PromptsSyncHandler | None = None,
     prompts_reader: PromptsReader | None = None,
+    prompts_writer: PromptsWriter | None = None,
 ) -> None:
     """Launch the interactive application."""
     AgentSkillsApp(
@@ -364,4 +385,5 @@ def run_tui(
         prompts_capture_handler,
         prompts_sync_handler,
         prompts_reader,
+        prompts_writer,
     ).run()

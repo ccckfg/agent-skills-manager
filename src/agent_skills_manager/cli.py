@@ -337,6 +337,9 @@ def _run_tui(settings: Settings) -> int:
         except OSError:
             return ""
 
+    def prompts_writer(path: Path, content: str) -> None:
+        prompt_store.write(path, content)
+
     run_tui(
         fast_snapshot,
         sync_agent,
@@ -349,6 +352,7 @@ def _run_tui(settings: Settings) -> int:
         capture_prompt,
         sync_prompts,
         prompts_reader,
+        prompts_writer,
     )
     return 0
 
